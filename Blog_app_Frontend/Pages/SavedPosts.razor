@@ -1,0 +1,322 @@
+﻿@page "/saved-posts"
+@using Blog_app_Frontend.Models
+@using Blog_app_Frontend.Services
+@inject SavedPostService SavedPostService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">My Saved Posts & Collections</MudText>
+
+    <MudTabs @bind-ActivePanelIndex="activeTabIndex">
+        <!-- Saved Posts Tab -->
+        <MudTabPanel Text="Saved Posts">
+            @if (isLoadingSavedPosts)
+            {
+                <MudStack AlignItems="AlignItems.Center" JustifyContent="Justify.Center" Spacing="2">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    <MudText>Loading saved posts...</MudText>
+                </MudStack>
+            }
+            else if (savedPosts == null || !savedPosts.Any())
+            {
+                <MudAlert Severity="Severity.Info">You have no saved posts yet.</MudAlert>
+            }
+            else
+            {
+                <MudGrid Spacing="3">
+                    @foreach (var post in savedPosts)
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard Elevation="2" Class="d-flex flex-column">
+                                @if (!string.IsNullOrEmpty(post.FeaturedImageUrl))
+                                {
+                                    <MudCardMedia Image="@post.FeaturedImageUrl" Height="180" Alt="@post.Title" />
+                                }
+                                <MudCardContent Class="flex-grow-1">
+                                    <MudText Typo="Typo.h6">@post.Title</MudText>
+                                    <MudStack AlignItems="AlignItems.Center" JustifyContent="Justify.Center" Spacing="2">
+                                        @if (!string.IsNullOrEmpty(post.AuthorAvatarUrl))
+                                        {
+                                            <MudAvatar Size="Size.Medium" Image="@post.AuthorAvatarUrl" Alt="@post.AuthorFullName" />
+                                        }
+                                        <MudText Typo="Typo.caption">
+                                            <b>By:</b> @(string.IsNullOrEmpty(post.AuthorFullName) ? post.AuthorUsername : post.AuthorFullName)
+                                        </MudText>
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Class="mt-1">
+                                        <b>Published:</b> @post.PublishedAt?.ToString("dd MMM yyyy")
+                                    </MudText>
+                                </MudCardContent>
+                                <MudCardActions Class="d-flex justify-between align-items-center">
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/posts/{post.Id}")" Class="me-2">
+                                        View Post
+                                    </MudButton>
+
+                                    @if (collections.Any())
+                                    {
+                                        <MudMenu Icon="@Icons.Material.Filled.LibraryAdd" Color="Color.Info">
+                                            @foreach (var collection in collections)
+                                            {
+                                                <MudMenuItem OnClick="async () => await AddPostToCollection(post.Id, collection.Id)">
+                                                    @collection.Name
+                                                </MudMenuItem>
+                                            }
+                                        </MudMenu>
+                                    }
+
+                                    <MudIconButton Icon="@Icons.Material.Filled.BookmarkRemove" Color="Color.Error" OnClick="async () => await RemoveSavedPostAsync(post)" />
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        </MudTabPanel>
+
+        <!-- Collections Tab -->
+        <MudTabPanel Text="Collections">
+            <MudStack Class="mb-3" Direction="Row" AlignItems="AlignItems.Center" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await CreateCollectionPrompt()">
+                    Create Collection
+                </MudButton>
+
+                @if (selectedCollection != null)
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="() => ClearSelectedCollection()">
+                        Back to Collections
+                    </MudButton>
+                }
+            </MudStack>
+
+            @if (isLoadingCollections || isLoadingCollectionPosts)
+            {
+                <MudStack AlignItems="AlignItems.Center" JustifyContent="Justify.Center" Spacing="2">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    <MudText>Loading...</MudText>
+                </MudStack>
+            }
+            else if (selectedCollection != null)
+            {
+                <!-- Display posts inside selected collection -->
+                @if (collectionPosts == null || !collectionPosts.Any())
+                {
+                    <MudAlert Severity="Severity.Info">No posts in this collection.</MudAlert>
+                }
+                else
+                {
+                    <MudGrid Spacing="3">
+                        @foreach (var post in collectionPosts)
+                        {
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudCard Elevation="2" Class="d-flex flex-column">
+                                    @if (!string.IsNullOrEmpty(post.FeaturedImageUrl))
+                                    {
+                                        <MudCardMedia Image="@post.FeaturedImageUrl" Height="180" Alt="@post.Title" />
+                                    }
+                                    <MudCardContent Class="flex-grow-1">
+                                        <MudText Typo="Typo.h6">@post.Title</MudText>
+                                        <MudStack AlignItems="AlignItems.Center" JustifyContent="Justify.Center" Spacing="2">
+                                            @if (!string.IsNullOrEmpty(post.AuthorAvatarUrl))
+                                            {
+                                                <MudAvatar Size="Size.Medium" Image="@post.AuthorAvatarUrl" Alt="@post.AuthorFullName" />
+                                            }
+                                            <MudText Typo="Typo.caption">
+                                                <b>By:</b> @(string.IsNullOrEmpty(post.AuthorFullName) ? post.AuthorUsername : post.AuthorFullName)
+                                            </MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.caption" Class="mt-1">
+                                            <b>Published:</b> @post.PublishedAt?.ToString("dd MMM yyyy")
+                                        </MudText>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                }
+            }
+            else if (collections == null || !collections.Any())
+            {
+                <MudAlert Severity="Severity.Info">You have no collections yet.</MudAlert>
+            }
+            else
+            {
+                <!-- Display list of collections -->
+                <MudGrid Spacing="3">
+                    @foreach (var collection in collections)
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard Elevation="2" Class="d-flex flex-column">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6">@collection.Name</MudText>
+                                    <MudText Typo="Typo.caption">Created: @collection.CreatedAt.ToString("dd MMM yyyy")</MudText>
+                                </MudCardContent>
+                                <MudCardActions Class="d-flex justify-between">
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await LoadCollectionPosts(collection)">
+                                        View Collection
+                                    </MudButton>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="async () => await DeleteCollectionAsync(collection)" />
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        </MudTabPanel>
+    </MudTabs>
+</MudContainer>
+
+@code {
+    private int activeTabIndex = 0;
+    private List<PostDto> savedPosts = new();
+    private bool isLoadingSavedPosts = true;
+    private List<CollectionDto> collections = new();
+    private bool isLoadingCollections = true;
+
+    private CollectionDto selectedCollection;
+    private List<PostDto> collectionPosts = new();
+    private bool isLoadingCollectionPosts = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSavedPostsAsync();
+        await LoadCollectionsAsync();
+    }
+
+    private async Task LoadSavedPostsAsync()
+    {
+        try
+        {
+            isLoadingSavedPosts = true;
+            savedPosts = await SavedPostService.GetSavedPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load saved posts: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoadingSavedPosts = false;
+        }
+    }
+
+    private async Task LoadCollectionsAsync()
+    {
+        try
+        {
+            isLoadingCollections = true;
+            collections = await SavedPostService.GetCollectionsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load collections: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoadingCollections = false;
+        }
+    }
+
+    private async Task LoadCollectionPosts(CollectionDto collection)
+    {
+        try
+        {
+            selectedCollection = collection;
+            isLoadingCollectionPosts = true;
+            collectionPosts = await SavedPostService.GetSavedPostsAsync(collection.Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load collection posts: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoadingCollectionPosts = false;
+        }
+    }
+
+    private void ClearSelectedCollection()
+    {
+        selectedCollection = null;
+        collectionPosts.Clear();
+    }
+
+    private async Task RemoveSavedPostAsync(PostDto post)
+    {
+        try
+        {
+            var success = await SavedPostService.RemoveSavedPostAsync(post.Id);
+            if (success)
+            {
+                savedPosts.Remove(post);
+                Snackbar.Add("Post removed from saved posts.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error removing saved post: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CreateCollectionPrompt()
+    {
+        try
+        {
+            var name = await JS.InvokeAsync<string>("prompt", "Enter collection name:");
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                var collectionDto = await SavedPostService.CreateCollectionAsync(name);
+                collections.Insert(0, collectionDto);
+                Snackbar.Add("Collection created successfully.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to create collection: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteCollectionAsync(CollectionDto collection)
+    {
+        try
+        {
+            var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete collection '{collection.Name}'?");
+            if (!confirmed) return;
+
+            var success = await SavedPostService.DeleteCollectionAsync(collection.Id);
+            if (success)
+            {
+                collections.Remove(collection);
+                if (selectedCollection?.Id == collection.Id) ClearSelectedCollection();
+                Snackbar.Add("Collection deleted successfully.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting collection: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AddPostToCollection(Guid postId, Guid collectionId)
+    {
+        try
+        {
+            var success = await SavedPostService.SavePostToCollectionAsync(postId, collectionId);
+            if (success)
+            {
+                Snackbar.Add("Post added to collection successfully!", Severity.Success);
+
+                // Refresh collection posts if currently viewing it
+                if (selectedCollection?.Id == collectionId)
+                {
+                    await LoadCollectionPosts(selectedCollection);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to add post to collection: {ex.Message}", Severity.Error);
+        }
+    }
+}

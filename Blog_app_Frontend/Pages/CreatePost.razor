@@ -1,0 +1,550 @@
+﻿@page "/create-post"
+@page "/posts/edit/{postId:guid}"
+@using Blog_app_Frontend.Models
+@inject Blog_app_Frontend.Services.PostService PostService
+@inject Blog_app_Frontend.Services.CategoryService CategoryService
+@inject Blog_app_Frontend.Services.TagService TagService
+@inject MudBlazor.ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@using MudBlazor
+
+<style>
+    .drop-zone {
+        border: 2px dashed var(--mud-palette-primary);
+        border-radius: 8px;
+        padding: 30px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background-color: var(--mud-palette-surface);
+        min-height: 350px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .drop-zone:hover {
+            border-color: var(--mud-palette-primary-darken);
+            background-color: var(--mud-palette-primary-lighten);
+            transform: scale(1.01);
+        }
+
+        .drop-zone.drag-over {
+            border-color: var(--mud-palette-secondary);
+            background-color: var(--mud-palette-secondary-lighten);
+            transform: scale(1.02);
+        }
+
+        .drop-zone label {
+            display: block;
+            cursor: pointer;
+            color: var(--mud-palette-primary);
+            font-weight: 500;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+
+        .drop-zone img {
+            max-width: 100%;
+            max-height: 280px;
+            margin-top: 10px;
+            border-radius: 8px;
+            box-shadow: var(--mud-elevation-2);
+        }
+
+    .heading-text {
+        background-color: #d0e2ff; /* Soft blue highlight */
+        color: #000;
+        font-weight: bold;
+        border-left: 4px solid #4285f4; /* Accent blue border */
+        display: inline-block; /* Fit to text length */
+        padding: 4px 8px 4px 12px; /* Padding to align with border */
+        border-radius: 4px 0 0 4px; /* Rounded corners on left side */
+    }
+
+    .status-button {
+        position: relative;
+        border-radius: 10px;
+        padding: 10px 20px;
+        transition: all 0.3s ease;
+        background: var(--mud-palette-primary);
+        color: var(--mud-palette-text-primary);
+        font-weight: 500;
+        text-transform: capitalize;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+        .status-button:hover {
+            background: var(--mud-palette-primary-darken);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .status-button:active {
+            transform: scale(0.98);
+            animation: button-smooth 0.2s ease;
+        }
+
+        .status-button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient( 90deg, transparent, rgba(255, 255, 255, 0.2), transparent );
+            transition: left 0.4s ease;
+        }
+
+        .status-button:hover::after {
+            left: 100%;
+        }
+
+        .status-button > * {
+            position: relative;
+            z-index: 1;
+        }
+
+    .create-button {
+        position: relative;
+        border-radius: 12px;
+        padding: 12px 28px;
+        transition: all 0.3s ease;
+        background: linear-gradient(45deg, var(--mud-palette-primary), var(--mud-palette-secondary-lighten));
+        color: var(--mud-palette-text-primary);
+        font-weight: 600;
+        text-transform: uppercase;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+    }
+
+        .create-button:hover {
+            background: linear-gradient(45deg, var(--mud-palette-secondary-lighten), var(--mud-palette-primary));
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+        }
+
+        .create-button:active {
+            transform: scale(0.98);
+            animation: button-smooth 0.2s ease;
+        }
+
+        .create-button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient( 90deg, transparent, rgba(255, 255, 255, 0.3), transparent );
+            transition: left 0.4s ease;
+        }
+
+        .create-button:hover::after {
+            left: 100%;
+        }
+
+        .create-button > * {
+            position: relative;
+            z-index: 1;
+        }
+
+    @@keyframes button-smooth {
+        0% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(0.98);
+        }
+
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    .page-container {
+        animation: fade-in 0.5s ease-in-out;
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+
+        .page-container:hover {
+            box-shadow: var(--mud-elevation-5);
+            transform: translateY(-2px);
+        }
+
+    @@keyframes fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .text-field-container {
+        position: relative;
+        transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+        border-radius: 4px;
+        padding: 8px;
+    }
+
+        .text-field-container:hover {
+            background-color: var(--mud-palette-background-grey);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .text-field-container:focus-within {
+            animation: text-field-glow 1.5s infinite;
+            box-shadow: 0 0 10px rgba(var(--mud-palette-primary-rgb), 0.5);
+        }
+
+    .field-icon {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--mud-palette-primary);
+        z-index: 1;
+        transition: transform 0.3s ease, color 0.3s ease;
+    }
+
+    .text-field-container:hover .field-icon {
+        transform: translateY(-50%) scale(1.2);
+        color: var(--mud-palette-primary-darken);
+    }
+
+    .mud-text-field {
+        padding-left: 40px !important;
+    }
+
+    .mud-select {
+        padding-left: 40px !important;
+    }
+
+    @@keyframes text-field-glow {
+        0% {
+            box-shadow: 0 0 0 0 rgba(var(--mud-palette-primary-rgb), 0.5);
+        }
+
+        50% {
+            box-shadow: 0 0 10px 4px rgba(var(--mud-palette-primary-rgb), 0.3);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(var(--mud-palette-primary-rgb), 0.5);
+        }
+    }
+</style>
+
+<MudPaper Class="pa-4 page-container" Elevation="3">
+    <div>
+        <MudText Typo="Typo.h5" Class="heading-text">@((postId.HasValue ? "Edit Post" : "Create Post"))</MudText>
+    </div>
+
+    <!-- Title -->
+    <div class="text-field-container mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Title" Class="field-icon" />
+        <MudTextField @bind-Value="post.Title" Label="Title" Required="true" Variant="Variant.Outlined" Class="mud-text-field" FullWidth="true" />
+    </div>
+
+    <!-- Content -->
+    <div class="text-field-container mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="field-icon" />
+        <MudTextField @bind-Value="post.ContentMarkdown" Label="Content (Markdown)" Lines="10" Variant="Variant.Outlined" Class="mud-text-field" FullWidth="true" />
+    </div>
+
+    <!-- Image Upload Section -->
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Featured Image</MudText>
+        <div @ref="dropZone" class="drop-zone">
+            <label for="fileInput">
+                Drag and drop image here or click to browse
+            </label>
+            <InputFile id="fileInput" OnChange="OnImageSelected" hidden />
+            @if (!string.IsNullOrEmpty(featuredImagePreviewUrl))
+            {
+                <MudImage Src="@featuredImagePreviewUrl" Alt="Preview" Fluid="true" Class="mt-4" />
+            }
+        </div>
+    </MudPaper>
+
+    <!-- Category -->
+    <div class="text-field-container mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Category" Class="field-icon" />
+        <MudSelect T="string" Label="Category" Variant="Variant.Outlined" @bind-Value="selectedCategoryIdAsString" Class="mud-select">
+            <MudSelectItem Value="@("")">None</MudSelectItem>
+            @if (categories != null)
+            {
+                @foreach (var cat in categories)
+                {
+                    <MudSelectItem Value="@cat.Id.ToString()">@cat.Name</MudSelectItem>
+                }
+            }
+        </MudSelect>
+    </div>
+
+    <!-- Tags -->
+    <div class="text-field-container mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Tag" Class="field-icon" />
+        <MudSelect T="string" Label="Tags" Variant="Variant.Outlined" MultiSelection="true" Class="mud-select"
+                   SelectedValues="selectedTagIdsAsString"
+                   SelectedValuesChanged="@((IEnumerable<string> newValues) => OnSelectedTagsChanged(newValues))">
+            @if (tags != null)
+            {
+                @foreach (var tag in tags)
+                {
+                    <MudSelectItem Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
+                }
+            }
+        </MudSelect>
+    </div>
+
+    <!-- Hashtags -->
+    <div class="text-field-container mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Label" Class="field-icon" />
+        <MudTextField @bind-Value="hashtagsText" Label="Hashtags (comma separated)" Variant="Variant.Outlined" Class="mud-text-field" FullWidth="true" />
+    </div>
+
+    <!-- Location -->
+    <div class="text-field-container mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Class="field-icon" />
+        <MudTextField @bind-Value="post.LocationTag" Label="Location (optional)" Variant="Variant.Outlined" Class="mud-text-field" FullWidth="true" />
+    </div>
+
+    <!-- Mentioned Users -->
+    <div class="text-field-container mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Group" Class="field-icon" />
+        <MudTextField @bind-Value="mentionedUsersText" Label="Mentioned User IDs (comma separated GUIDs)" Variant="Variant.Outlined" Class="mud-text-field" FullWidth="true" />
+    </div>
+
+    <!-- Status Selection and Scheduled Date -->
+    <div class="d-flex flex-column align-end mt-4">
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Post Status</MudText>
+        <div class="d-flex">
+            <MudButton StartIcon="@Icons.Material.Filled.Publish"
+                       Color="@(post.Status == StatusPublished ? Color.Primary : Color.Default)"
+                       Variant="@(post.Status == StatusPublished ? Variant.Filled : Variant.Outlined)"
+                       OnClick="() => SetStatus(StatusPublished)"
+                       Class="status-button">
+                Publish
+            </MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.Drafts"
+                       Color="@(post.Status == StatusDraft ? Color.Primary : Color.Default)"
+                       Variant="@(post.Status == StatusDraft ? Variant.Filled : Variant.Outlined)"
+                       OnClick="() => SetStatus(StatusDraft)"
+                       Class="status-button ml-2">
+                Draft
+            </MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.Schedule"
+                       Color="@(post.Status == StatusScheduled ? Color.Primary : Color.Default)"
+                       Variant="@(post.Status == StatusScheduled ? Variant.Filled : Variant.Outlined)"
+                       OnClick="() => SetStatus(StatusScheduled)"
+                       Class="status-button ml-2">
+                Schedule
+            </MudButton>
+        </div>
+
+        @if (post.Status == StatusScheduled)
+        {
+            <div class="text-field-container mt-4 mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.DateRange" Class="field-icon" />
+                <MudDatePicker @bind-Date="post.ScheduledFor" Label="Scheduled For" Variant="Variant.Outlined" Class="mud-text-field" />
+            </div>
+        }
+
+        <!-- Create Button -->
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SavePost" Class="create-button mt-4"> @((postId.HasValue ? "Update Post" : "Create Post")) </MudButton>
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter] public Guid? postId { get; set; }
+
+    private Post post = new Post { Status = StatusDraft };
+    private HashSet<string> selectedTagIdsAsString = new HashSet<string>();
+    private List<CategoryDto> categories = new List<CategoryDto>();
+    private List<TagDto> tags = new List<TagDto>();
+    private string hashtagsText = string.Empty;
+    private string mentionedUsersText = string.Empty;
+
+    private string featuredImagePreviewUrl;
+    private IBrowserFile selectedImageFile;
+
+    private ElementReference dropZone;
+
+    private string selectedCategoryIdAsString
+    {
+        get => post.CategoryId?.ToString() ?? "";
+        set => post.CategoryId = string.IsNullOrEmpty(value) ? null : Guid.Parse(value);
+    }
+
+    private const string StatusDraft = "draft";
+    private const string StatusPublished = "published";
+    private const string StatusScheduled = "scheduled";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            categories = await CategoryService.GetCategoriesAsync() ?? new List<CategoryDto>();
+            tags = await TagService.GetTagsAsync() ?? new List<TagDto>();
+
+            if (postId.HasValue)
+            {
+                var existingPost = await PostService.GetPostByIdAsync(postId.Value);
+                if (existingPost != null)
+                {
+                    post = new Post
+                    {
+                        Id = existingPost.Id,
+                        Title = existingPost.Title,
+                        ContentMarkdown = existingPost.ContentMarkdown,
+                        Status = existingPost.Status,
+                        CategoryId = existingPost.CategoryId,
+                        FeaturedImageUrl = existingPost.FeaturedImageUrl,
+                        ScheduledFor = existingPost.ScheduledFor,
+                        LocationTag = existingPost.LocationTag
+                    };
+
+                    selectedTagIdsAsString = new HashSet<string>(existingPost.TagIds.Select(id => id.ToString()));
+                    hashtagsText = string.Join(", ", existingPost.Hashtags ?? new List<string>());
+                    mentionedUsersText = string.Join(", ", existingPost.MentionedUserIds ?? new List<Guid>());
+                    featuredImagePreviewUrl = post.FeaturedImageUrl;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading data: {ex.Message}", Severity.Error);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("eval", @"
+                window.initDropZone = function (dropZone) {
+                    dropZone.addEventListener('dragover', e => {
+                        e.preventDefault();
+                        dropZone.classList.add('drag-over');
+                    });
+                    dropZone.addEventListener('dragleave', e => {
+                        dropZone.classList.remove('drag-over');
+                    });
+                    dropZone.addEventListener('drop', e => {
+                        e.preventDefault();
+                        dropZone.classList.remove('drag-over');
+                        const fileInput = document.getElementById('fileInput');
+                        const dt = new DataTransfer();
+                        Array.from(e.dataTransfer.files).forEach(file => dt.items.add(file));
+                        fileInput.files = dt.files;
+                        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                    dropZone.addEventListener('click', () => {
+                        document.getElementById('fileInput').click();
+                    });
+                }
+            ");
+            await JS.InvokeVoidAsync("initDropZone", dropZone);
+        }
+    }
+
+    private void SetStatus(string status)
+    {
+        post.Status = status;
+        StateHasChanged();
+    }
+
+    private Task OnSelectedTagsChanged(IEnumerable<string> newValues)
+    {
+        selectedTagIdsAsString = new HashSet<string>(newValues);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task OnImageSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            using var ms = new MemoryStream();
+            await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            featuredImagePreviewUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
+            selectedImageFile = file;
+        }
+    }
+
+    private async Task SavePost()
+    {
+        try
+        {
+            // Tags
+            var tagGuids = selectedTagIdsAsString
+                .Select(id => Guid.TryParse(id, out var guid) ? guid : Guid.Empty)
+                .Where(g => g != Guid.Empty)
+                .ToList();
+
+            // Hashtags
+            var hashtags = string.IsNullOrWhiteSpace(hashtagsText)
+                ? new List<string>()
+                : hashtagsText.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                             .Select(s => s.Trim())
+                             .ToList();
+
+            // Mentioned Users
+            var mentionedUsers = string.IsNullOrWhiteSpace(mentionedUsersText)
+                ? new List<Guid>()
+                : mentionedUsersText.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(s => Guid.TryParse(s.Trim(), out var guid) ? guid : Guid.Empty)
+                                    .Where(g => g != Guid.Empty)
+                                    .ToList();
+
+            if (string.IsNullOrWhiteSpace(post.Title) || string.IsNullOrWhiteSpace(post.ContentMarkdown))
+            {
+                Snackbar.Add("Title and Content are required.", Severity.Warning);
+                return;
+            }
+
+            var dto = new CreatePostDto
+            {
+                Title = post.Title,
+                ContentMarkdown = post.ContentMarkdown,
+                Status = post.Status,
+                CategoryId = post.CategoryId,
+                FeaturedImageFile = selectedImageFile,
+                FeaturedImageUrl = post.FeaturedImageUrl,
+                TagIds = tagGuids,
+                Hashtags = hashtags,
+                MentionedUserIds = mentionedUsers,
+                LocationTag = post.LocationTag,
+                ScheduledFor = post.ScheduledFor
+            };
+
+            var result = await PostService.CreateOrUpdatePostAsync(dto, isUpdate: postId.HasValue, postId: postId);
+
+            if (result != null)
+            {
+                Snackbar.Add(postId.HasValue ? "Post updated successfully!" : "Post saved successfully!", Severity.Success);
+                Navigation.NavigateTo("/profile");
+            }
+            else
+            {
+                Snackbar.Add("Failed to save post.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving post: {ex.Message}", Severity.Error);
+        }
+    }
+}

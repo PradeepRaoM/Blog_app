@@ -1,0 +1,164 @@
+﻿@page "/register"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@using Blog_app_Frontend.Services
+@using MudBlazor
+
+<style>
+    .register-container {
+        max-width: 400px;
+        margin: 5rem auto;
+        padding: 2rem;
+        background: linear-gradient(135deg, #ffffff, #f0f4f8);
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        transition: transform 0.3s ease-in-out;
+        animation: fadeInScale 0.5s ease-out forwards;
+    }
+
+    @@keyframes fadeInScale {
+        0% {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .register-container:hover {
+        transform: translateY(-5px);
+    }
+
+    .register-title {
+        font-weight: 600;
+        color: #1a237e;
+        text-align: center;
+        margin-bottom: 0.5rem;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.1s;
+        opacity: 0;
+    }
+
+    .register-subtitle {
+        color: #546e7a;
+        text-align: center;
+        margin-bottom: 2rem;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.2s;
+        opacity: 0;
+    }
+
+    .mud-text-field {
+        margin-bottom: 1.5rem !important;
+        transition: all 0.3s ease;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.3s;
+        opacity: 0;
+    }
+
+        .mud-text-field:hover {
+            transform: scale(1.02);
+        }
+
+    .mud-button-root {
+        border-radius: 8px !important;
+        padding: 12px !important;
+        font-weight: 500 !important;
+        background-color: #3f51b5 !important;
+        color: #ffffff !important;
+        transition: background-color 0.3s ease, transform 0.2s ease !important;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.4s;
+        opacity: 0;
+    }
+
+        .mud-button-root:hover {
+            background-color: #303f9f !important;
+            transform: scale(1.05);
+        }
+
+    .success-message {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 0.9rem;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @@keyframes slideIn {
+        0% {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .login-link {
+        display: block;
+        text-align: center;
+        margin-top: 1.5rem;
+        color: #3f51b5;
+        text-decoration: none;
+        font-size: 0.9rem;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.5s;
+        opacity: 0;
+    }
+
+        .login-link:hover {
+            text-decoration: underline;
+        }
+
+    @@keyframes fadeInUp {
+        0% {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<MudPaper Class="register-container">
+    <MudText Typo="Typo.h5" Class="register-title">Create Account</MudText>
+    <MudText Typo="Typo.body2" Class="register-subtitle">Join us today</MudText>
+
+    <MudTextField @bind-Value="_email" Label="Email" Variant="Variant.Outlined" FullWidth="true"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" />
+    <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password"
+                  FullWidth="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" />
+
+    <MudButton Variant="Variant.Filled" OnClick="OnRegisterClick" FullWidth="true">Register</MudButton>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <MudText Class="success-message">@_message</MudText>
+    }
+
+    <MudLink Href="/login" Class="login-link">Already have an account? Sign in</MudLink>
+</MudPaper>
+
+@code {
+    private string _email;
+    private string _password;
+    private string _message;
+
+    private async Task OnRegisterClick()
+    {
+        var success = await AuthService.RegisterAsync(_email, _password);
+        _message = success ? "Registration successful! You can now log in." : "Registration failed.";
+    }
+}

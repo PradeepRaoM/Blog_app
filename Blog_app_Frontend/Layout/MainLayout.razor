@@ -1,0 +1,191 @@
+﻿@inherits LayoutComponentBase
+@using Blog_app_Frontend.Models
+@using Blog_app_Frontend.Services
+@using MudBlazor
+@inject NavigationManager Navigation
+@inject NotificationService NotificationService
+@inject PostService PostService
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudText Typo="Typo.h6">Blog App</MudText>
+
+        <MudSpacer />
+
+        <!-- Notification Icon -->
+        <div style="position: relative; display: inline-block;">
+            <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" OnClick="@ToggleNotificationMenu" />
+            @if (UnreadCount > 0)
+            {
+                <MudBadge Content="@UnreadCount"
+                          Color="Color.Error"
+                          Class="notification-badge"
+                          Invisible="false" />
+            }
+        </div>
+        @if (ShowNotificationMenu)
+        {
+            <MudPaper Class="notification-menu">
+                @if (Notifications != null && Notifications.Count > 0)
+                {
+                    <MudPaper Class="p-2" Style="min-width:300px; max-height:400px; overflow:auto;">
+                        @foreach (var n in Notifications)
+                        {
+                            <MudStack Direction="Row" AlignItems="AlignItems.Center" JustifyContent="Justify.SpaceBetween" Class="my-1">
+                                <MudText>@n.Content</MudText>
+
+                                @if (n.ReferenceId != null)
+                                {
+                                    <MudButton Class="notification-button" Variant="Variant.Outlined" Size="Size.Small"
+                                               OnClick="@(() => NavigateToReference(n))">
+                                        @GetButtonText(n.ReferenceType)
+                                    </MudButton>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudText Class="p-2">No notifications</MudText>
+                }
+            </MudPaper>
+        }
+
+        <style>
+            .notification-badge {
+                position: absolute;
+                top: 6px;
+                right: 6px;
+                font-size: 0.75rem;
+                min-width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .notification-menu {
+                position: absolute;
+                top: 64px;
+                right: 60px;
+                z-index: 1000;
+                min-width: 300px;
+                max-height: 400px;
+                overflow-y: auto;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                background-color: #ffffff;
+                padding: 8px;
+                transition: all 0.3s ease;
+                overflow: hidden;
+            }
+
+            .notification-button {
+                background-color: #e3f2fd; /* light blue */
+                color: #1976d2;
+                font-size: 0.8rem;
+                padding: 4px 8px;
+                border-radius: 4px;
+                text-transform: none;
+                min-width: 80px;
+            }
+
+                .notification-button:hover {
+                    background-color: #bbdefb;
+                }
+
+            .notification-list-item {
+                padding: 12px 16px;
+                border-radius: 6px;
+                margin: 4px 0;
+                transition: background-color 0.2s ease;
+                cursor: default;
+                color: #333;
+                font-size: 0.95rem;
+            }
+
+                .notification-list-item:hover {
+                    background-color: #f5f5f5;
+                }
+        </style>
+    </MudAppBar>
+
+    <MudDrawer Open="true" ClipMode="DrawerClipMode.Always" Elevation="1">
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    // ---------------- NOTIFICATIONS ----------------
+    private List<NotificationDto> Notifications = new();
+    private int UnreadCount = 0;
+    private bool ShowNotificationMenu { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadNotifications();
+    }
+
+    private async Task LoadNotifications()
+    {
+        try
+        {
+            Notifications = await NotificationService.GetUnreadNotificationsAsync();
+            UnreadCount = Notifications.Count;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load notifications: {ex.Message}");
+        }
+    }
+
+    private void ToggleNotificationMenu()
+    {
+        ShowNotificationMenu = !ShowNotificationMenu;
+    }
+
+    private void NavigateToReference(NotificationDto notification)
+    {
+        if (notification.ReferenceId == null) return;
+
+        switch (notification.ReferenceType?.ToLower())
+        {
+            case "post":
+            case "savedpost":
+                Navigation.NavigateTo($"/posts/{notification.ReferenceId}");
+                break;
+
+            case "comment":
+                Navigation.NavigateTo($"/posts/{notification.ReferenceId}");
+                break;
+
+            default:
+                Console.WriteLine("Unknown reference type");
+                break;
+        }
+
+        ShowNotificationMenu = false; // Close menu after click
+    }
+
+    private string GetButtonText(string? referenceType)
+    {
+        return referenceType?.ToLower() switch
+        {
+            "comment" => "View Comment",
+            "post" => "View Post",
+            "savedpost" => "View Saved Post",
+            _ => "View"
+        };
+    }
+}

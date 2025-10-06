@@ -1,0 +1,249 @@
+﻿@using Blog_app_Frontend.Services
+@using MudBlazor
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="sidebar @SidebarCssClass">
+    <!-- Top Section -->
+    <div class="sidebar-header">
+        <span class="sidebar-title">BLOG APP</span>
+        <button class="toggle-btn" @onclick="ToggleNavMenu">
+            <MudIcon Icon="@Icons.Material.Filled.Menu" />
+        </button>
+    </div>
+
+    <!-- Middle Section (Links) -->
+    <ul class="nav flex-column sidebar-links">
+        @if (isLoggedIn)
+        {
+            <li class="nav-item">
+                <NavLink class="nav-link" href="posts" Match="NavLinkMatch.All">
+                    <MudIcon Icon="@Icons.Material.Filled.Article" />
+                    <span class="link-text">Posts</span>
+                </NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink class="nav-link" href="category-tag-manager">
+                    <MudIcon Icon="@Icons.Material.Filled.Category" />
+                    <span class="link-text">Categories</span>
+                </NavLink>
+            </li>
+
+            <li class="nav-item">
+                <NavLink class="nav-link" href="profile">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" />
+                    <span class="link-text">Profile</span>
+                </NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink class="nav-link" href="create-post">
+                    <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                    <span class="link-text">Create Post</span>
+                </NavLink>
+            </li>
+        }
+        else
+        {
+            <li class="nav-item">
+                <NavLink class="nav-link" href="login">
+                    <MudIcon Icon="@Icons.Material.Filled.Login" />
+                    <span class="link-text">Login</span>
+                </NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink class="nav-link" href="register">
+                    <MudIcon Icon="@Icons.Material.Filled.AppRegistration" />
+                    <span class="link-text">Register</span>
+                </NavLink>
+            </li>
+        }
+    </ul>
+
+    <!-- Bottom Section (Logout) -->
+    @if (isLoggedIn)
+    {
+        <div class="sidebar-footer">
+            <button class="btn btn-danger w-100" @onclick="Logout">
+                <MudIcon Icon="@Icons.Material.Filled.Logout" />
+                <span class="link-text">Logout</span>
+            </button>
+        </div>
+    }
+</div>
+<style>
+    /* Sidebar Container */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 240px;
+        background-color: #ffffff; /* White background */
+        color: #000000; /* Black text */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: width 0.3s ease;
+        border-radius: 0 12px 12px 0;
+        box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+        padding: 10px;
+        z-index: 1000;
+    }
+
+        .sidebar.collapsed {
+            width: 70px;
+        }
+
+    /* Header */
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px;
+    }
+
+    .sidebar-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        color: #000000;
+    }
+
+    .toggle-btn {
+        background: none;
+        border: none;
+        color: #000000;
+        font-size: 1.3rem;
+        cursor: pointer;
+    }
+
+    /* Links */
+    .sidebar-links {
+        flex-grow: 1;
+        margin-top: 20px;
+        padding-left: 0;
+    }
+
+        .sidebar-links .nav-link {
+            display: flex;
+            align-items: center;
+            color: #000000; /* Black links */
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            transition: background 0.3s, transform 0.2s, color 0.3s;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+            .sidebar-links .nav-link mud-icon {
+                font-size: 1.5rem;
+                margin-right: 10px;
+                color: #000000;
+            }
+
+            /* Hover effect → soft pastel blue */
+            .sidebar-links .nav-link:hover {
+                background-color: #e8f0fe; /* Soft light blue */
+                color: #000;
+                transform: scale(1.03);
+            }
+
+            /* Active (selected) link → soft highlight */
+            .sidebar-links .nav-link.active {
+                background-color: #d0e2ff; /* Soft blue highlight */
+                color: #000;
+                font-weight: bold;
+                border-left: 4px solid #4285f4; /* Accent blue border */
+            }
+
+    /* Text hidden when collapsed */
+    .sidebar.collapsed .link-text {
+        display: none;
+    }
+
+    .sidebar.collapsed .sidebar-title {
+        display: none;
+    }
+
+    /* Footer */
+    .sidebar-footer {
+        padding: 10px;
+    }
+
+        .sidebar-footer button {
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 500;
+            background-color: #f8d7da; /* Bootstrap danger red */
+            color: #dc3545;
+            border: none;
+            transition: background 0.3s, transform 0.2s, color 0.3s;
+            width:100px;
+            height:40px;
+        }
+
+            /* Hover effect → soft red */
+            .sidebar-footer button:hover {
+                background-color: #dc3545;
+                color: #fff; /* Soft light red */
+                 /* Red text */
+                transform: scale(1.03);
+            }
+
+            /* Active effect → stronger red highlight */
+            .sidebar-footer button:active,
+            .sidebar-footer button.active {
+                background-color: #f1aeb5; /* Medium soft red */
+                color: #000;
+                font-weight: bold;
+                border-left: 4px solid #dc3545; /* Accent red border */
+            }
+
+    /* Override MudBlazor nav items */
+    .nav-item[b-hwiceibcbg] a {
+        color: #000 !important; /* Black text */
+    }
+
+        /* Hover override → soft blue */
+        .nav-item[b-hwiceibcbg] a:hover {
+            color: #000 !important;
+            background-color: #e8f0fe !important; /* Soft hover */
+        }
+
+        /* Active override → soft highlight */
+        .nav-item[b-hwiceibcbg] a.active {
+            background-color: #d0e2ff !important; /* Soft blue active */
+            border-left: 4px solid #4285f4 !important; /* Accent blue border */
+            font-weight: bold !important;
+        }
+</style>
+
+
+
+@code {
+    private bool collapseNavMenu = false;
+    private bool isLoggedIn = false;
+
+    private string SidebarCssClass => collapseNavMenu ? "collapsed" : "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.LoadTokenAsync();
+        var token = await AuthService.GetTokenFromLocalStorageAsync();
+        isLoggedIn = !string.IsNullOrEmpty(token);
+    }
+
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        isLoggedIn = false;
+        Navigation.NavigateTo("login");
+    }
+}

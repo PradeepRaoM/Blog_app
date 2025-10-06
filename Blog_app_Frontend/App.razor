@@ -1,0 +1,72 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+@using MudBlazor.Services
+
+<MudThemeProvider Theme="customTheme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<CascadingAuthenticationState>
+    <ErrorBoundary>
+        <ChildContent>
+            <Router AppAssembly="@typeof(App).Assembly">
+                <Found Context="routeData">
+                    <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                        <NotAuthorized>
+                            @if (!(context.User.Identity?.IsAuthenticated ?? false))
+                            {
+                                <RedirectToLogin />
+                            }
+                            else
+                            {
+                                <p>You are not authorized to access this page.</p>
+                            }
+                        </NotAuthorized>
+                        <Authorizing>
+                            <p>Checking authorization...</p>
+                        </Authorizing>
+                    </AuthorizeRouteView>
+                    <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+                </Found>
+                <NotFound>
+                    <LayoutView Layout="@typeof(MainLayout)">
+                        <p role="alert">Sorry, there's nothing at this address.</p>
+                    </LayoutView>
+                </NotFound>
+            </Router>
+        </ChildContent>
+        <ErrorContent>
+            <MudAlert Severity="Severity.Error">An error occurred. Please try again.</MudAlert>
+        </ErrorContent>
+    </ErrorBoundary>
+</CascadingAuthenticationState>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    private AuthenticationState context => authenticationStateTask.GetAwaiter().GetResult();
+
+    private MudTheme customTheme = new MudTheme
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#1976D2",
+            Secondary = "#FF4081",
+            Background = "#F5F5F5",
+            Surface = "#FFFFFF",
+            TextPrimary = "#212121",
+            TextSecondary = "#757575"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#1976D2",
+            Secondary = "#FF4081",
+            Background = "#303030",
+            Surface = "#424242",
+            TextPrimary = "#FFFFFF",
+            TextSecondary = "#B0B0B0"
+        },
+        
+    };
+}

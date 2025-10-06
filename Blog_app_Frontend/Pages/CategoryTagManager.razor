@@ -1,0 +1,477 @@
+﻿@page "/category-tag-manager"
+@using Blog_app_Frontend.Models
+@using Blog_app_Frontend.Services
+@using MudBlazor
+@inject CategoryService CategoryService
+@inject TagService TagService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Class="custom-tabs" Centered="true">
+        <!-- Categories Tab -->
+        <MudTabPanel Text="Categories" Icon="@Icons.Material.Filled.Category">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-6 page-title">
+                <MudText Typo="Typo.h4" Class="main-title">Manage Categories</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadCategories" Class="refresh-button"></MudButton>
+            </MudStack>
+
+            <!-- Create Category -->
+            <MudCard Elevation="4" Class="mb-6 create-card">
+                <MudCardHeader>
+                    <MudText Typo="Typo.h6" Class="section-title">Create New Category</MudText>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudStack Spacing="4">
+                        <MudTextField @bind-Value="newCategory.Name"
+                                      Label="Category Name"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Required="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.Category"
+                                      Class="custom-input" />
+                        <MudTextField @bind-Value="newCategory.Description"
+                                      Label="Description"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Lines="3"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.Description"
+                                      Class="custom-input" />
+                    </MudStack>
+                </MudCardContent>
+                <MudCardActions Class="pa-4">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="CreateCategory"
+                               StartIcon="@Icons.Material.Filled.AddCircle"
+                               Class="custom-button">
+                        Create Category
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+
+            <!-- Categories Grid -->
+            <MudGrid Spacing="3">
+                @if (isLoadingCategories)
+                {
+                    <MudItem xs="12" Class="d-flex justify-center align-center">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    </MudItem>
+                }
+                else if (categories.Count == 0)
+                {
+                    <MudItem xs="12" Class="d-flex justify-center align-center">
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="my-4">
+                            No categories found. Create one to get started!
+                        </MudAlert>
+                    </MudItem>
+                }
+                else
+                {
+                    @foreach (var category in categories)
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard Elevation="3" Class="category-card">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => DeleteCategory(category.Id))"
+                                               Class="delete-icon" />
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Color="Color.Primary">@category.Name</MudText>
+                                    <MudText Typo="Typo.body2" Class="description-text">@category.Description</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                }
+            </MudGrid>
+        </MudTabPanel>
+
+        <!-- Tags Tab -->
+        <MudTabPanel Text="Tags" Icon="@Icons.Material.Filled.Tag">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-6 page-title">
+                <MudText Typo="Typo.h4" Class="main-title">Manage Tags</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadTags" Class="refresh-button"></MudButton>
+            </MudStack>
+
+            <!-- Create Tag -->
+            <MudCard Elevation="4" Class="mb-6 create-card">
+                <MudCardHeader>
+                    <MudText Typo="Typo.h6" Class="section-title">Create New Tag</MudText>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudStack Spacing="4">
+                        <MudTextField @bind-Value="newTag.Name"
+                                      Label="Tag Name"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Required="true"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.Tag"
+                                      Class="custom-input" />
+                        <MudTextField @bind-Value="newTag.Description"
+                                      Label="Description"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Lines="2"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@Icons.Material.Filled.Description"
+                                      Class="custom-input" />
+                    </MudStack>
+                </MudCardContent>
+                <MudCardActions Class="pa-4">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="CreateTag"
+                               StartIcon="@Icons.Material.Filled.AddCircle"
+                               Class="custom-button">
+                        Create Tag
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+
+            <!-- Tags Grid -->
+            <MudGrid Spacing="3">
+                @if (isLoadingTags)
+                {
+                    <MudItem xs="12" Class="d-flex justify-center align-center">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    </MudItem>
+                }
+                else if (tags.Count == 0)
+                {
+                    <MudItem xs="12" Class="d-flex justify-center align-center">
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="my-4">
+                            No tags found. Create one to get started!
+                        </MudAlert>
+                    </MudItem>
+                }
+                else
+                {
+                    @foreach (var tag in tags)
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard Elevation="3" Class="category-card">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => DeleteTag(tag.Id))"
+                                               Class="delete-icon" />
+                                <MudCardContent>
+                                    <MudText Typo="Typo.h6" Color="Color.Primary">@tag.Name</MudText>
+                                    <MudText Typo="Typo.body2" Class="description-text">@tag.Description</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                }
+            </MudGrid>
+        </MudTabPanel>
+    </MudTabs>
+</MudContainer>
+
+<style>
+    /* Page container styling */
+    .mt-8 {
+        margin-top: 2rem;
+    }
+
+    /* Tabs styling */
+    .custom-tabs {
+        background-color: #f5f7fa;
+        border-radius: 12px;
+        padding: 0.5rem;
+        display: flex;
+        justify-content: center;
+    }
+
+        .custom-tabs .mud-tabs-header {
+            background-color: transparent;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .custom-tabs .mud-tab {
+            text-transform: none;
+            font-weight: 600;
+            color: #333;
+            transition: color 0.3s ease;
+        }
+
+            .custom-tabs .mud-tab:hover {
+                color: #4285f4;
+            }
+
+            .custom-tabs .mud-tab.mud-tab-active {
+                color: #4285f4;
+                border-bottom: 3px solid #4285f4;
+            }
+
+    /* Main title styling (Manage Categories, Manage Tags) */
+    .main-title {
+        background-color: #d0e2ff; /* Soft blue highlight */
+        color: #000;
+        font-weight: bold;
+        border-left: 4px solid #4285f4; /* Accent blue border */
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+    }
+
+    /* Section title styling (Create New Category, Create New Tag) */
+    .section-title {
+        text-decoration: underline;
+        text-decoration-color: #4285f4;
+        text-decoration-thickness: 2px;
+        color: #333;
+    }
+
+    /* Card styling for create forms */
+    .create-card {
+        border-radius: 12px;
+        padding: 1.5rem;
+        background: linear-gradient(145deg, #ffffff, #f0f4ff);
+        transition: all 0.3s ease;
+    }
+
+        .create-card:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+    /* Input fields */
+    .custom-input .mud-input-control {
+        transition: all 0.3s ease;
+    }
+
+        .custom-input .mud-input-control:hover {
+            background-color: #f0f4ff;
+        }
+
+    /* Card styling for category/tag items */
+    .category-card {
+        position: relative; /* For absolute positioning of delete icon */
+        border-radius: 12px;
+        padding: 0.5rem; /* Reduced padding for smaller height */
+        background: #ffffff;
+        transition: all 0.3s ease;
+        border: 1px solid #e0e0e0;
+        max-width: 90%; /* Reduced width */
+        margin: 0 auto; /* Center the card */
+    }
+
+        .category-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            border-color: #4285f4;
+        }
+
+    /* Description text */
+    .description-text {
+        color: #555;
+        line-height: 1.4;
+        font-size: 0.85rem; /* Reduced font size for smaller height */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    /* Delete icon styling */
+    .delete-icon {
+        position: absolute;
+        top: 8px;
+        right: 8px; /* Changed from left to right */
+        opacity: 0; /* Hidden by default */
+        transition: opacity 0.3s ease;
+    }
+
+    .category-card:hover .delete-icon {
+        opacity: 1; /* Visible on card hover */
+    }
+
+    .delete-icon:hover {
+        background-color: #ffebee;
+        transform: scale(1.1);
+    }
+
+    /* Button styling */
+    .custom-button {
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+        .custom-button:hover {
+            background-color: #4285f4;
+            transform: scale(1.05);
+        }
+
+    /* Refresh button styling */
+    .refresh-button {
+        background-color: #4285f4; /* Blue shade */
+        min-width: 40px;
+        padding: 0.5rem;
+        border-radius: 8px;
+    }
+
+        .refresh-button:hover {
+            background-color: #3267d6; /* Darker blue on hover */
+            transform: scale(1.05);
+        }
+
+    /* Responsive adjustments */
+    @@media (max-width: 600px) {
+        .main-title
+
+    {
+        font-size: 1.5rem;
+    }
+
+    .create-card {
+        padding: 1rem;
+    }
+
+    .category-card {
+        padding: 0.4rem; /* Further reduced padding for mobile */
+    }
+
+    .description-text {
+        font-size: 0.8rem; /* Smaller font size for mobile */
+    }
+
+    }
+</style>
+
+@code {
+    // Categories
+    private List<CategoryDto> categories = new();
+    private CategoryDto newCategory = new();
+    private bool isLoadingCategories = true;
+
+    // Tags
+    private List<TagDto> tags = new();
+    private TagDto newTag = new();
+    private bool isLoadingTags = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategories();
+        await LoadTags();
+    }
+
+    // Category Methods
+    private async Task LoadCategories()
+    {
+        isLoadingCategories = true;
+        try
+        {
+            categories = await CategoryService.GetCategoriesAsync();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error loading categories", Severity.Error);
+        }
+        isLoadingCategories = false;
+    }
+
+    private async Task CreateCategory()
+    {
+        if (string.IsNullOrWhiteSpace(newCategory.Name))
+        {
+            Snackbar.Add("Category name is required", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var success = await CategoryService.CreateCategoryAsync(newCategory);
+            if (success)
+            {
+                Snackbar.Add("Category created successfully", Severity.Success);
+                newCategory = new CategoryDto();
+                await LoadCategories();
+            }
+            else
+            {
+                Snackbar.Add("Failed to create category", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error creating category", Severity.Error);
+        }
+    }
+
+    private async Task DeleteCategory(Guid id)
+    {
+        try
+        {
+            await CategoryService.DeleteCategoryAsync(id);
+            Snackbar.Add("Category deleted successfully", Severity.Success);
+            await LoadCategories();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error deleting category", Severity.Error);
+        }
+    }
+
+    // Tag Methods
+    private async Task LoadTags()
+    {
+        isLoadingTags = true;
+        try
+        {
+            tags = await TagService.GetTagsAsync();
+        }
+        catch
+        {
+            Snackbar.Add("Error loading tags", Severity.Error);
+        }
+        isLoadingTags = false;
+    }
+
+    private async Task CreateTag()
+    {
+        if (string.IsNullOrWhiteSpace(newTag.Name))
+        {
+            Snackbar.Add("Tag name is required", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var success = await TagService.CreateTagAsync(newTag);
+            if (success != null)
+            {
+                Snackbar.Add("Tag created successfully", Severity.Success);
+                newTag = new TagDto();
+                await LoadTags();
+            }
+            else
+            {
+                Snackbar.Add("Failed to create tag", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Error creating tag", Severity.Error);
+        }
+    }
+
+    private async Task DeleteTag(Guid id)
+    {
+        try
+        {
+            await TagService.DeleteTagAsync(id);
+            Snackbar.Add("Tag deleted successfully", Severity.Success);
+            await LoadTags();
+        }
+        catch
+        {
+            Snackbar.Add("Error deleting tag", Severity.Error);
+        }
+    }
+}

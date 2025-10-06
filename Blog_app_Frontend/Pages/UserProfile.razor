@@ -1,0 +1,696 @@
+﻿@page "/profile"
+@page "/profile/{userId:guid}"
+@using Blog_app_Frontend.Models
+@using Blog_app_Frontend.Services
+@using MudBlazor
+@inject ProfileService ProfileService
+@inject UserFollowService UserFollowService
+@inject PostService PostService
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<style>
+    .profile-container {
+        max-width: 800px !important;
+    }
+
+    .profile-paper {
+        padding: 24px;
+        border-radius: 12px;
+        background: linear-gradient(145deg, #ffffff, #f0f0f0);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .profile-paper:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .profile-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .profile-content {
+        display: flex;
+        gap: 32px;
+    }
+
+    .left-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .right-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding-top: 24px;
+    }
+
+    .counts-row {
+        display: flex;
+        gap: 24px;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .avatar-container {
+        position: relative;
+        overflow: hidden;
+        border-radius: 50%;
+        transition: transform 0.3s ease;
+    }
+
+    .avatar-container:hover {
+        transform: scale(1.05);
+    }
+
+    .follow-button {
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .follow-button:hover {
+        transform: scale(1.05);
+    }
+
+    .edit-buttons {
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .social-icons .mud-icon-button {
+        transition: color 0.3s ease, transform 0.2s ease;
+    }
+
+    .social-icons .mud-icon-button:hover {
+        transform: scale(1.1);
+    }
+
+    .count-text {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .count-label {
+        font-size: 1rem;
+        color: #666;
+    }
+
+    .tabs-container {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .mud-tabs {
+        width: 100%;
+    }
+
+    .mud-tabs .mud-tabs-toolbar {
+        justify-content: center !important;
+    }
+
+    .mud-tabs .mud-tab-panel {
+        width: 100%;
+        min-height: 0; /* Remove fixed min-height to prevent excessive expansion */
+    }
+
+    .post-card {
+        min-height: 300px;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .post-card .mud-card-media {
+        object-fit: cover;
+        width: 100%;
+        height: 150px;
+    }
+
+    .post-card .mud-card-content {
+        flex-grow: 1;
+    }
+
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4 mb-4 profile-container">
+    <MudPaper Elevation="3" Class="p-4 profile-paper fade-in">
+        <div class="profile-header">
+            <MudText Typo="Typo.h5">@(profile?.FullName ?? (userId.HasValue ? "User Profile" : "My Profile"))</MudText>
+            @if (!userId.HasValue)
+            {
+                <div class="edit-buttons">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@ToggleEdit" ToolTip="Edit Profile" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Bookmark" Color="Color.Primary"
+                                   OnClick="@(() => Navigation.NavigateTo("/saved-posts"))"
+                                   ToolTip="View Saved Posts" />
+                </div>
+            }
+        </div>
+
+        @if (isLoading)
+        {
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Class="my-2" />
+        }
+        else if (profile == null)
+        {
+            <MudAlert Severity="Severity.Info">No profile found.</MudAlert>
+        }
+        else
+        {
+            <div class="profile-content">
+                <div class="left-section">
+                    <div class="avatar-container">
+   <MudAvatar Size="Size.Large"
+           Alt="@profile.FullName">
+    @if (string.IsNullOrWhiteSpace(profile.AvatarUrl))
+    {
+                                @profile.FullName?.Split(' ').Select(n => n.First()).Take(2)
+                            }
+                            else
+                            {
+                                <MudImage Src="@GetSafeAvatarUrl(profile.AvatarUrl)"></MudImage>
+                            }
+                        </MudAvatar>
+
+
+
+</div>
+
+
+                    @if (isEditing)
+                    {
+                        <MudTextField @bind-Value="updateDto.FullName" Label="Full Name" Required="true" Class="my-1" />
+                        <MudTextField @bind-Value="updateDto.Username" Label="Username" Required="true" Class="my-1" />
+                        <MudTextField @bind-Value="updateDto.Role" Label="Role" Required="true" Class="my-1" />
+                        <MudTextField @bind-Value="updateDto.Bio" Label="Bio" Lines="2" Class="my-1" />
+                        <MudTextField @bind-Value="updateDto.Website" Label="Website" Class="my-1" />
+                        <InputFile OnChange="UploadAvatarFileAsync" class="my-1" />
+                        <MudTextField @bind-Value="updateDto.AvatarUrl" Label="Avatar URL" Class="my-1" />
+                        <MudTextField @bind-Value="updateDto.Twitter" Label="Twitter Handle" Class="my-1" />
+                        <MudTextField @bind-Value="updateDto.LinkedIn" Label="LinkedIn Profile" Class="my-1" />
+                        <MudTextField @bind-Value="updateDto.Instagram" Label="Instagram Handle" Class="my-1" />
+
+                        <div class="d-flex gap-2 mt-2">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UpdateProfileAsync">Save</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteProfileAsync">Delete</MudButton>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h6">@profile.FullName</MudText>
+                        <MudText Typo="Typo.caption">@($"@{profile.Username}")</MudText>
+                        <MudText Typo="Typo.body2" Class="text-center mb-1">@profile.Bio</MudText>
+
+                        <div class="social-icons d-flex gap-2 mt-2">
+                            @if (!string.IsNullOrWhiteSpace(profile.Website))
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Web" Color="Color.Primary"
+                                               Href="@profile.Website" Target="_blank" ToolTip="Website" />
+                            }
+                            @if (!string.IsNullOrWhiteSpace(profile.Twitter))
+                            {
+                                <MudIconButton Icon="@Icons.Custom.Brands.Twitter" Color="Color.Info"
+                                               Href="@($"https://twitter.com/{profile.Twitter.TrimStart('@')}")" Target="_blank" />
+                            }
+                            @if (!string.IsNullOrWhiteSpace(profile.LinkedIn))
+                            {
+                                <MudIconButton Icon="@Icons.Custom.Brands.LinkedIn" Color="Color.Primary"
+                                               Href="@profile.LinkedIn" Target="_blank" />
+                            }
+                            @if (!string.IsNullOrWhiteSpace(profile.Instagram))
+                            {
+                                <MudIconButton Icon="@Icons.Custom.Brands.Instagram" Color="Color.Secondary"
+                                               Href="@($"https://instagram.com/{profile.Instagram.TrimStart('@')}")" Target="_blank" />
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="right-section">
+                    <div class="counts-row">
+                        <div>
+                            <MudText Typo="Typo.subtitle1" Class="count-text">@followersCount</MudText>
+                            <MudText Typo="Typo.body2" Class="count-label">Followers</MudText>
+                        </div>
+                        <div>
+                            <MudText Typo="Typo.subtitle1" Class="count-text">@followingCount</MudText>
+                            <MudText Typo="Typo.body2" Class="count-label">Following</MudText>
+                        </div>
+                        <div>
+                            <MudText Typo="Typo.subtitle1" Class="count-text">@publishedPosts.Count</MudText>
+                            <MudText Typo="Typo.body2" Class="count-label">Posts</MudText>
+                        </div>
+                    </div>
+                    @if (!isOwnProfile)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="@followButtonColor" OnClick="ToggleFollow" Class="follow-button mt-2">
+                            @followButtonText
+                        </MudButton>
+                    }
+                </div>
+            </div>
+        }
+    </MudPaper>
+</MudContainer>
+
+<!-- Posts Tabs -->
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 tabs-container">
+    <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" Centered="true">
+        <MudTabPanel Text="Published">
+            @if (publishedPosts == null)
+            {
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            }
+            else if (!publishedPosts.Any())
+            {
+                <MudText>No published posts available.</MudText>
+            }
+            else
+            {
+                <MudGrid Spacing="3" Class="mt-4">
+                    @foreach (var post in publishedPosts)
+                    {
+                        <MudItem xs="12" sm="4">
+                            <MudCard Elevation="2" Class="post-card">
+                                @if (!string.IsNullOrEmpty(post.FeaturedImageUrl))
+                                {
+                                    <MudCardMedia Image="@post.FeaturedImageUrl" Height="150" Alt="@post.Title" />
+                                }
+                                <MudCardContent>
+                                    <MudStack Direction="Row" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.subtitle2">
+                                            <b>By:</b>
+                                            @if (post.AuthorId.HasValue)
+                                            {
+                                                <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigateToAuthorProfile(post.AuthorId))">
+                                                    @post.AuthorFullName
+                                                </MudButton>
+                                            }
+                                            else
+                                            {
+                                                <MudText>Unknown</MudText>
+                                            }
+                                        </MudText>
+                                    </MudStack>
+                                    <MudText Typo="Typo.h6">@post.Title</MudText>
+                                    <MudText Typo="Typo.body2">@post.MetaDescription</MudText>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/posts/{post.Id}")">Read more</MudButton>
+                                    <MudIconButton Icon="@Icons.Material.Filled.BarChart" Color="Color.Info"
+                                                   OnClick="@(() => NavigateToPostInsights(post.Id))"
+                                                   ToolTip="View Post Insights" />
+                                    @if (!userId.HasValue)
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                                       OnClick="@(() => EditPost(post.Id))" ToolTip="Edit Post" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                                       OnClick="@(() => DeletePost(post))" ToolTip="Delete Post" />
+                                    }
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        </MudTabPanel>
+
+        @if (!userId.HasValue)
+        {
+            <MudTabPanel Text="Drafts">
+                @if (draftPosts == null)
+                {
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                }
+                else if (!draftPosts.Any())
+                {
+                    <MudText>No draft posts available.</MudText>
+                }
+                else
+                {
+                    <MudGrid Spacing="3" Class="mt-4">
+                        @foreach (var post in draftPosts)
+                        {
+                            <MudItem xs="12" sm="4">
+                                <MudCard Elevation="2" Class="post-card">
+                                    @if (!string.IsNullOrEmpty(post.FeaturedImageUrl))
+                                    {
+                                        <MudCardMedia Image="@post.FeaturedImageUrl" Height="150" Alt="@post.Title" />
+                                    }
+                                    <MudCardContent>
+                                        <MudStack Direction="Row" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                            <MudText Typo="Typo.subtitle2">
+                                                <b>By:</b>
+                                                @if (post.AuthorId.HasValue)
+                                                {
+                                                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigateToAuthorProfile(post.AuthorId))">
+                                                        @post.AuthorFullName
+                                                    </MudButton>
+                                                }
+                                                else
+                                                {
+                                                    <MudText>Unknown</MudText>
+                                                }
+                                            </MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.h6">@post.Title</MudText>
+                                        <MudText Typo="Typo.body2">@post.MetaDescription</MudText>
+                                    </MudCardContent>
+                                    <MudCardActions>
+                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/posts/{post.Id}")">Read more</MudButton>
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="@(() => ContinueEditing(post.Id))">Continue Editing</MudButton>
+
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                                       OnClick="@(() => DeletePost(post))" ToolTip="Delete Post" />
+                                    </MudCardActions>
+                                </MudCard>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                }
+            </MudTabPanel>
+
+            <MudTabPanel Text="Scheduled">
+                @if (scheduledPosts == null)
+                {
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                }
+                else if (!scheduledPosts.Any())
+                {
+                    <MudText>No scheduled posts available.</MudText>
+                }
+                else
+                {
+                    <MudGrid Spacing="3" Class="mt-4">
+                        @foreach (var post in scheduledPosts)
+                        {
+                            <MudItem xs="12" sm="4">
+                                <MudCard Elevation="2" Class="post-card">
+                                    @if (!string.IsNullOrEmpty(post.FeaturedImageUrl))
+                                    {
+                                        <MudCardMedia Image="@post.FeaturedImageUrl" Height="150" Alt="@post.Title" />
+                                    }
+                                    <MudCardContent>
+                                        <MudStack Direction="Row" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                            <MudText Typo="Typo.subtitle2">
+                                                <b>By:</b>
+                                                @if (post.AuthorId.HasValue)
+                                                {
+                                                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigateToAuthorProfile(post.AuthorId))">
+                                                        @post.AuthorFullName
+                                                    </MudButton>
+                                                }
+                                                else
+                                                {
+                                                    <MudText>Unknown</MudText>
+                                                }
+                                            </MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.h6">@post.Title</MudText>
+                                        <MudText Typo="Typo.body2">@post.MetaDescription</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Scheduled for: @post.ScheduledFor?.ToString("f")
+                                        </MudText>
+                                    </MudCardContent>
+                                    <MudCardActions>
+                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/posts/{post.Id}")">Read more</MudButton>
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Success" OnClick="@(() => PublishNow(post))">Post Now</MudButton>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                                       OnClick="@(() => EditPost(post.Id))" ToolTip="Edit Post" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                                       OnClick="@(() => DeletePost(post))" ToolTip="Delete Post" />
+                                    </MudCardActions>
+                                </MudCard>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                }
+            </MudTabPanel>
+        }
+    </MudTabs>
+</MudContainer>
+
+@code {
+    [Parameter] public Guid? userId { get; set; }
+
+    private Profile profile;
+    private ProfileUpdateDto updateDto = new();
+    private bool isLoading = true;
+    private bool isEditing = false;
+    private string errorMessage;
+    private int followersCount = 0;
+    private int followingCount = 0;
+    private bool isFollowing = false;
+    private bool isOwnProfile => userId == null;
+
+    private List<PostDto> publishedPosts = new();
+    private List<PostDto> draftPosts = new();
+    private List<PostDto> scheduledPosts = new();
+
+    private string followButtonText => isFollowing ? "Unfollow" : "Follow";
+    private Color followButtonColor => isFollowing ? Color.Error : Color.Primary;
+
+    // --- NAVIGATION HELPERS ---
+    private void NavigateToAuthorProfile(Guid? authorId)
+    {
+        if (authorId.HasValue)
+            Navigation.NavigateTo($"/profile/{authorId.Value}");
+    }
+
+    private void NavigateToPostInsights(Guid postId)
+    {
+        Navigation.NavigateTo($"/posts/{postId}/insights");
+    }
+
+    private void EditPost(Guid postId) => Navigation.NavigateTo($"/posts/edit/{postId}");
+    private void ContinueEditing(Guid postId) => Navigation.NavigateTo($"/posts/edit/{postId}");
+
+    // --- PROFILE METHODS ---
+    private async Task ToggleFollow()
+    {
+        try
+        {
+            if (isFollowing)
+            {
+                await UserFollowService.UnfollowUserAsync(profile.Id);
+                isFollowing = false;
+                followersCount--;
+            }
+            else
+            {
+                await UserFollowService.FollowUserAsync(profile.Id);
+                isFollowing = true;
+                followersCount++;
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error updating follow status: {ex.Message}");
+        }
+    }
+
+    private void ToggleEdit() => isEditing = !isEditing;
+
+    private async Task UpdateProfileAsync()
+    {
+        try
+        {
+            profile = await ProfileService.UpdateMyProfileAsync(updateDto);
+            isEditing = false;
+            await JS.InvokeVoidAsync("alert", "Profile updated successfully!");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update profile: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteProfileAsync()
+    {
+        try
+        {
+            bool confirm = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete your profile?");
+            if (!confirm) return;
+
+            await ProfileService.DeleteMyProfileAsync();
+            profile = null;
+            updateDto = new ProfileUpdateDto();
+            publishedPosts.Clear();
+            draftPosts.Clear();
+            scheduledPosts.Clear();
+            await JS.InvokeVoidAsync("alert", "Profile deleted successfully!");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete profile: {ex.Message}";
+        }
+    }
+
+    private async Task UploadAvatarFileAsync(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file == null) return;
+
+            var uploadedUrl = await ProfileService.UploadAvatarAsync(file);
+            uploadedUrl = uploadedUrl.Replace(" ", "%20");
+            updateDto.AvatarUrl = uploadedUrl;
+            profile.AvatarUrl = uploadedUrl;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to upload avatar: {ex.Message}";
+        }
+    }
+
+  // Encode URL to handle spaces and special characters
+private string GetSafeAvatarUrl(string url)
+{
+    if (string.IsNullOrWhiteSpace(url))
+        return null;
+
+    // Properly encode URL for spaces and special characters
+    return Uri.EscapeUriString(url);
+}
+
+
+// Get initials from full name as fallback
+private string GetInitials(string fullName)
+{
+    if (string.IsNullOrWhiteSpace(fullName))
+        return "?";
+
+    var names = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    if (names.Length == 1)
+        return names[0][0].ToString().ToUpper();
+
+    return string.Concat(names[0][0], names[1][0]).ToUpper();
+}
+
+
+
+    private async Task PublishNow(PostDto post)
+    {
+        bool confirm = await JS.InvokeAsync<bool>("confirm", $"Publish '{post.Title}' now?");
+        if (!confirm) return;
+
+        try
+        {
+            var dto = new CreatePostDto
+            {
+                Title = post.Title,
+                ContentMarkdown = post.ContentMarkdown,
+                Status = "published"
+            };
+
+            await PostService.CreateOrUpdatePostAsync(dto, true, post.Id);
+            scheduledPosts.Remove(post);
+            publishedPosts.Add(post);
+            await JS.InvokeVoidAsync("alert", "Post published successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Failed to publish post: {ex.Message}");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (userId.HasValue)
+            {
+                var response = await PostService.GetProfileWithPostsAsync(userId.Value);
+                profile = response?.Profile;
+                publishedPosts = response?.Posts?.Where(p => p.IsPublished).ToList() ?? new List<PostDto>();
+            }
+            else
+            {
+                var response = await PostService.GetMyProfileWithPostsAsync();
+                profile = response?.Profile;
+
+                publishedPosts = response?.Posts.ContainsKey("published") == true
+                    ? response.Posts["published"]
+                    : new List<PostDto>();
+
+                draftPosts = response?.Posts.ContainsKey("draft") == true
+                    ? response.Posts["draft"]
+                    : new List<PostDto>();
+
+                scheduledPosts = response?.Posts.ContainsKey("scheduled") == true
+                    ? response.Posts["scheduled"]
+                    : new List<PostDto>();
+            }
+
+            if (profile != null)
+            {
+                updateDto = new ProfileUpdateDto
+                {
+                    FullName = profile.FullName,
+                    Username = profile.Username,
+                    Role = profile.Role,
+                    Bio = profile.Bio,
+                    Website = profile.Website,
+                    Twitter = profile.Twitter,
+                    LinkedIn = profile.LinkedIn,
+                    Instagram = profile.Instagram,
+                    AvatarUrl = profile.AvatarUrl
+                };
+
+                followersCount = await UserFollowService.GetFollowersCountAsync(profile.Id);
+                followingCount = await UserFollowService.GetFollowingCountAsync(profile.Id);
+
+                isFollowing = userId.HasValue ? await UserFollowService.IsFollowingAsync(profile.Id) : false;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load profile or posts: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task DeletePost(PostDto post)
+    {
+        bool confirm = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete '{post.Title}'?");
+        if (!confirm) return;
+
+        if (await PostService.DeletePostAsync(post.Id))
+        {
+            publishedPosts.Remove(post);
+            draftPosts.Remove(post);
+            scheduledPosts.Remove(post);
+            StateHasChanged();
+        }
+    }
+    private void AvatarLoadFailed()
+{
+    profile.AvatarUrl = null;
+}
+
+}

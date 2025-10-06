@@ -1,0 +1,532 @@
+﻿@page "/posts/{id:guid}"
+@using Blog_app_Frontend.Models
+@using Blog_app_Frontend.Services
+@inject HttpClient Http
+@inject CommentService CommentService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+@inject IJSRuntime JS
+
+<style>
+    /* Container styling */
+    .mud-container {
+        padding: 16px;
+        display: flex;
+        flex-direction: row;
+        gap: 24px;
+        height: calc(100vh - 64px);
+        overflow: hidden;
+    }
+
+    /* Post details section (65%) */
+    .post-details {
+        flex: 0 0 65%;
+        position: sticky;
+        top: 70px;
+        height: fit-content;
+        padding-right: 16px;
+    }
+
+    /* Floating Go Back button */
+    .go-back-button {
+        position: fixed;
+        top: 80px;
+        left: 16px;
+        z-index: 1000;
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s ease;
+    }
+
+    .go-back-button:hover {
+        transform: scale(1.1);
+    }
+
+    /* Comments section (35%) */
+    .comments-section {
+        flex: 0 0 35%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    /* Outer comment paper styling */
+    .comments-outer-paper {
+        border-radius: 12px;
+        flex-grow: 1;
+        background-color: #fff;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Card styling */
+    .mud-card {
+        border-radius: 12px;
+        overflow: hidden;
+        background-color: #fff;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .mud-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Ensure full image visibility */
+    .mud-card-media {
+        width: 100%;
+        height: auto;
+        max-height: 400px;
+        object-fit: contain;
+        background-color: #f5f5f5;
+        transition: transform 0.5s ease;
+    }
+
+    .mud-card:hover .mud-card-media {
+        transform: scale(1.05);
+    }
+
+    /* Author section styling */
+    .author-section {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        background-color: #f5f5f5;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .mud-avatar {
+        transition: transform 0.2s ease;
+    }
+
+    .mud-avatar:hover {
+        transform: scale(1.1);
+    }
+
+    /* Button styling */
+    .mud-button, .mud-icon-button {
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .mud-button:hover, .mud-icon-button:hover {
+        transform: scale(1.1);
+    }
+
+    /* Comment section styling */
+    .mud-paper {
+        border-radius: 12px;
+        flex-grow: 1;
+        padding: 16px;
+        background-color: #fff;
+        overflow-y: auto;
+    }
+
+    .mud-paper:hover {
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Sticky comment input */
+    .comment-input-container {
+        position: sticky;
+        bottom: 0;
+        background-color: #fff;
+        padding: 8px 16px;
+        border-top: 1px solid #e0e0e0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Google search bar style for comment input */
+    .comment-input {
+        border: 1px solid #dfe1e5 !important;
+        border-radius: 24px !important;
+        padding: 8px 16px !important;
+        box-shadow: 0 1px 6px rgba(32, 33, 36, 0.28) !important;
+        transition: box-shadow 0.2s ease !important;
+    }
+
+    .comment-input:hover {
+        box-shadow: 0 1px 8px rgba(32, 33, 36, 0.4) !important;
+    }
+
+    /* Comment item styling */
+    .comment-item {
+        padding: 8px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        background-color: #f5f5f5;
+        animation: fadeIn 0.5s ease-in;
+        position: relative;
+    }
+
+    .comment-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: space-between;
+    }
+
+    /* Comment actions (edit/delete) */
+    .comment-actions {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+    }
+
+    .comment-item:hover .comment-actions {
+        opacity: 1;
+    }
+
+    /* Loading animation */
+    .mud-progress-circular {
+        margin: 24px auto;
+        display: block;
+    }
+
+    /* Fade-in animation */
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive adjustments */
+    @@media (max-width: 960px) {
+        .mud-container {
+            flex-direction: column;
+            height: auto;
+        }
+
+        .post-details, .comments-section {
+            flex: 0 0 100%;
+        }
+
+        .comments-section {
+            margin-top: 16px;
+        }
+
+        .mud-card-media {
+            max-height: 300px;
+        }
+
+        .go-back-button {
+            top: 16px;
+        }
+
+        .post-details {
+            top: 72px;
+        }
+    }
+</style>
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    @if (isLoading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        <MudText>Loading post details...</MudText>
+    }
+    else if (Post == null)
+    {
+        <MudAlert Severity="Severity.Error">Sorry, the post you requested does not exist.</MudAlert>
+    }
+    else
+    {
+        <div class="post-details">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Color="Color.Primary" Class="go-back-button" OnClick="GoBack" />
+            <MudCard Elevation="2" Class="mb-4">
+                <MudCardContent>
+                    <div class="author-section">
+                        @if (!string.IsNullOrEmpty(Post.AuthorAvatarUrl))
+                        {
+                            <MudAvatar Size="Size.Medium" >
+                                  <MudImage Src="@Post.AuthorAvatarUrl"></MudImage>
+                                </MudAvatar>
+                        }
+                        <MudText Typo="Typo.subtitle2">
+                            <b>By:</b>
+                            @if (!string.IsNullOrEmpty(Post.AuthorFullName))
+                            {
+                                <MudLink Href="@($"/profile/{Post.AuthorId}")">@Post.AuthorFullName</MudLink>
+                            }
+                            else if (!string.IsNullOrEmpty(Post.AuthorUsername))
+                            {
+                                <MudLink Href="@($"/profile/{Post.AuthorId}")">@Post.AuthorUsername</MudLink>
+                            }
+                            else
+                            {
+                                <span>Unknown</span>
+                            }
+                        </MudText>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(Post.FeaturedImageUrl))
+                    {
+                        <MudCardMedia Image="@Post.FeaturedImageUrl" Alt="@Post.Title" Class="mb-4" />
+                    }
+
+                    <MudText Typo="Typo.h4" GutterBottom="true">@Post.Title</MudText>
+
+                    <MudText Typo="Typo.caption" Class="mb-2">
+                        <b>Published on:</b> @Post.PublishedAt?.ToString("MMMM dd, yyyy")
+                    </MudText>
+
+                    <MudText Typo="Typo.body1" Class="mb-4">
+                        @((MarkupString)Post.ContentHtml)
+                    </MudText>
+
+                    <!-- ---------------- SOCIAL SHARING ---------------- -->
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.subtitle1" Class="mb-2">Share this post:</MudText>
+                    <MudIconButton Icon="@Icons.Custom.Brands.Twitter" Color="Color.Info" OnClick="@(() => ShareOnTwitter(Post))" />
+                    <MudIconButton Icon="@Icons.Custom.Brands.Facebook" Color="Color.Primary" OnClick="@(() => ShareOnFacebook(Post))" />
+                    <MudIconButton Icon="@Icons.Custom.Brands.LinkedIn" Color="Color.Info" OnClick="@(() => ShareOnLinkedIn(Post))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Link" Color="Color.Secondary" OnClick="@CopyPostUrl" />
+                </MudCardContent>
+            </MudCard>
+        </div>
+
+        <!-- ---------------- COMMENTS ---------------- -->
+        <div class="comments-section">
+            <MudPaper Elevation="2" Class="comments-outer-paper">
+                <MudPaper Elevation="0" Class="p-4">
+                    <MudText Typo="Typo.h5" GutterBottom="true">Comments (@Comments.Count)</MudText>
+
+                    @if (Comments != null && Comments.Any())
+                    {
+                        <MudList T="Comment" Class="mt-4">
+                            @foreach (var comment in Comments)
+                            {
+                                <MudListItem T="Comment" Class="comment-item">
+                                    <MudStack Direction="Column" Spacing="1">
+                                        <MudText Typo="Typo.subtitle2">@(comment.AuthorFullName ?? comment.AuthorUsername ?? "Unknown")</MudText>
+                                        <div class="comment-content">
+                                            <MudText Typo="Typo.body2">@comment.Content</MudText>
+                                            <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIconButton Icon="@((comment.IsLikedByCurrentUser ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder))"
+                                                               Color="@(comment.IsLikedByCurrentUser ? Color.Error : Color.Default)"
+                                                               OnClick="() => ToggleLike(comment)" Disabled="@isLoading" />
+                                                <MudText Typo="Typo.caption">@comment.LikeCount</MudText>
+                                            </MudStack>
+                                        </div>
+                                        @if (comment.AuthorId.ToString() == CurrentUserId)
+                                        {
+                                            <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1" Class="comment-actions">
+                                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => StartEditing(comment)" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteComment(comment)" />
+                                            </MudStack>
+                                        }
+                                        @if (EditingComment == comment)
+                                        {
+                                            <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
+                                                <MudTextField @bind-Value="EditingContent" Lines="1" FullWidth="true" />
+                                                <MudButton Size="Size.Small" Color="Color.Primary" OnClick="() => SaveEdit(comment)">Save</MudButton>
+                                                <MudButton Size="Size.Small" OnClick="CancelEdit">Cancel</MudButton>
+                                            </MudStack>
+                                        }
+                                    </MudStack>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-2">No comments yet. Be the first to comment!</MudText>
+                    }
+                </MudPaper>
+
+                @if (IsLoggedIn)
+                {
+                    <div class="comment-input-container">
+                        <MudTextField @bind-Value="NewCommentContent" Label="Add a comment..." Lines="1" FullWidth="true" Class="comment-input" />
+                        <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Color="Color.Primary" OnClick="SubmitComment" Disabled="@isLoading" />
+                    </div>
+                }
+                else
+                {
+                    <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-2">Login to post a comment.</MudText>
+                }
+            </MudPaper>
+        </div>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid id { get; set; }
+
+    private PostDto? Post;
+    private bool isLoading = true;
+
+    private List<Comment> Comments = new();
+    private string NewCommentContent = "";
+    private bool IsLoggedIn = false;
+    private string CurrentUserId = "";
+    private string CurrentUserFullName = "";
+    private string CurrentUserAvatarUrl = "";
+
+    private Comment? EditingComment;
+    private string EditingContent = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Post = await Http.GetFromJsonAsync<PostDto>($"https://localhost:7247/api/posts/{id}");
+            if (Post == null)
+            {
+                Navigation.NavigateTo("/posts");
+                return;
+            }
+
+            await LoadCommentsAsync();
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            IsLoggedIn = user.Identity?.IsAuthenticated ?? false;
+            if (IsLoggedIn)
+            {
+                CurrentUserId = user.FindFirst(c => c.Type == "sub")?.Value ?? "";
+                CurrentUserFullName = user.Identity?.Name ?? "You";
+                CurrentUserAvatarUrl = "";
+            }
+        }
+        catch
+        {
+            Navigation.NavigateTo("/posts");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadCommentsAsync()
+    {
+        Comments = await CommentService.GetCommentsByPostIdAsync(Post!.Id);
+        StateHasChanged();
+    }
+
+    private async Task SubmitComment()
+    {
+        if (string.IsNullOrWhiteSpace(NewCommentContent) || string.IsNullOrEmpty(CurrentUserId)) return;
+
+        var created = await CommentService.CreateCommentAsync(Post!.Id, Guid.Parse(CurrentUserId), NewCommentContent);
+        if (created != null)
+        {
+            created.AuthorFullName = CurrentUserFullName;
+            created.AuthorAvatarUrl = CurrentUserAvatarUrl;
+            created.IsLikedByCurrentUser = false;
+
+            Comments.Add(created);
+            NewCommentContent = "";
+            StateHasChanged();
+        }
+    }
+
+    private void StartEditing(Comment comment)
+    {
+        EditingComment = comment;
+        EditingContent = comment.Content;
+    }
+
+    private void CancelEdit()
+    {
+        EditingComment = null;
+        EditingContent = "";
+    }
+
+    private async Task SaveEdit(Comment comment)
+    {
+        if (EditingComment == null) return;
+
+        var updated = await CommentService.UpdateCommentAsync(comment.Id, Guid.Parse(CurrentUserId), EditingContent);
+        if (updated != null)
+        {
+            comment.Content = updated.Content;
+            EditingComment = null;
+            EditingContent = "";
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteComment(Comment comment)
+    {
+        var deleted = await CommentService.DeleteCommentAsync(comment.Id, Guid.Parse(CurrentUserId));
+        if (deleted)
+        {
+            Comments.Remove(comment);
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleLike(Comment comment)
+    {
+        if (!IsLoggedIn) return;
+
+        Comment updated = null;
+        if (comment.IsLikedByCurrentUser)
+        {
+            updated = await CommentService.DislikeCommentAsync(comment.Id);
+            comment.IsLikedByCurrentUser = false;
+        }
+        else
+        {
+            updated = await CommentService.LikeCommentAsync(comment.Id);
+            comment.IsLikedByCurrentUser = true;
+        }
+
+        if (updated != null)
+        {
+            comment.LikeCount = updated.LikeCount;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/posts");
+    }
+
+    // ------------------- SOCIAL SHARING FUNCTIONS -------------------
+    private async Task ShareOnTwitter(PostDto post)
+    {
+        var url = Navigation.Uri;
+        var text = Uri.EscapeDataString(post.Title);
+        var twitterUrl = $"https://twitter.com/intent/tweet?url={url}&text={text}";
+        await JS.InvokeVoidAsync("open", twitterUrl, "_blank");
+    }
+
+    private async Task ShareOnFacebook(PostDto post)
+    {
+        var url = Navigation.Uri;
+        var fbUrl = $"https://www.facebook.com/sharer/sharer.php?u={url}";
+        await JS.InvokeVoidAsync("open", fbUrl, "_blank");
+    }
+
+    private async Task ShareOnLinkedIn(PostDto post)
+    {
+        var url = Navigation.Uri;
+        var linkedInUrl = $"https://www.linkedin.com/sharing/share-offsite/?url={url}";
+        await JS.InvokeVoidAsync("open", linkedInUrl, "_blank");
+    }
+
+    private async Task CopyPostUrl()
+    {
+        var url = Navigation.Uri;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", url);
+        await JS.InvokeVoidAsync("alert", "Post URL copied to clipboard!");
+    }
+}

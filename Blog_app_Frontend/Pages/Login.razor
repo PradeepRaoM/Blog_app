@@ -1,0 +1,226 @@
+﻿@page "/login"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@using Blog_app_Frontend.Services
+@using MudBlazor
+
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 5rem auto;
+        padding: 2rem;
+        background: linear-gradient(135deg, #ffffff, #f0f4f8);
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        transition: transform 0.3s ease-in-out;
+        animation: fadeInScale 0.5s ease-out forwards;
+    }
+
+    @@keyframes fadeInScale {
+        0% {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .login-container:hover {
+        transform: translateY(-5px);
+    }
+
+    .login-title {
+        font-weight: 600;
+        color: #1a237e;
+        text-align: center;
+        margin-bottom: 0.5rem;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.1s;
+        opacity: 0;
+    }
+
+    .login-subtitle {
+        color: #546e7a;
+        text-align: center;
+        margin-bottom: 2rem;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.2s;
+        opacity: 0;
+    }
+
+    .mud-text-field {
+        margin-bottom: 1.5rem !important;
+        transition: all 0.3s ease;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.3s;
+        opacity: 0;
+    }
+
+    .mud-text-field:hover {
+        transform: scale(1.02);
+    }
+
+    .mud-button-root {
+        border-radius: 8px !important;
+        padding: 12px !important;
+        font-weight: 500 !important;
+        background-color: #3f51b5 !important;
+        color: #ffffff !important;
+        transition: background-color 0.3s ease, transform 0.2s ease !important;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.4s;
+        opacity: 0;
+    }
+
+    .mud-button-root:hover {
+        background-color: #303f9f !important;
+        transform: scale(1.05);
+    }
+
+    .mud-button-success {
+        background-color: #81c784 !important;
+        color: #ffffff !important;
+        transition: background-color 0.3s ease, transform 0.2s ease !important;
+    }
+
+    .mud-button-success:hover {
+        background-color: #66bb6a !important;
+        transform: scale(1.05);
+    }
+
+    .error-message, .reset-message {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 0.9rem;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .error-message {
+        background-color: #ffebee;
+        color: #c62828;
+    }
+
+    .reset-message {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .register-link, .forgot-password-link, .back-to-login-link {
+        display: block;
+        text-align: center;
+        margin-top: 1.5rem;
+        color: #3f51b5;
+        text-decoration: none;
+        font-size: 0.9rem;
+        animation: fadeInUp 0.5s ease-out forwards;
+        animation-delay: 0.5s;
+        opacity: 0;
+    }
+
+    .forgot-password-link, .back-to-login-link {
+        animation-delay: 0.6s;
+    }
+
+    .register-link:hover, .forgot-password-link:hover, .back-to-login-link:hover {
+        text-decoration: underline;
+    }
+
+    @@keyframes fadeInUp {
+        0% {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideIn {
+        0% {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<MudPaper Class="login-container">
+    @if (!_showResetPassword)
+    {
+        <MudText Typo="Typo.h5" Class="login-title">Welcome Back</MudText>
+        <MudText Typo="Typo.body2" Class="login-subtitle">Sign in to your account</MudText>
+
+        <MudTextField @bind-Value="_email" Label="Email" Variant="Variant.Outlined" FullWidth="true" 
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" />
+        <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" 
+                      FullWidth="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" />
+
+        <MudButton Variant="Variant.Filled" OnClick="OnLoginClick" FullWidth="true" Class="@(_isLoginSuccessful ? "mud-button-success" : "")">
+            @(_isLoginSuccessful ? "Login Successful" : "Sign In")
+        </MudButton>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudText Class="error-message">@_error</MudText>
+        }
+
+        <MudLink Class="forgot-password-link" @onclick="() => _showResetPassword = true">Forgot Password?</MudLink>
+        <MudLink Href="/register" Class="register-link">Don't have an account? Sign up</MudLink>
+    }
+    else
+    {
+        <MudText Typo="Typo.h5" Class="login-title">Reset Password</MudText>
+        <MudText Typo="Typo.body2" Class="login-subtitle">Enter your email to reset your password</MudText>
+
+        <MudTextField @bind-Value="_resetEmail" Label="Email" Variant="Variant.Outlined" FullWidth="true" 
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" />
+
+        <MudButton Variant="Variant.Filled" OnClick="OnResetPasswordClick" FullWidth="true">Send Reset Link</MudButton>
+
+        @if (!string.IsNullOrEmpty(_resetMessage))
+        {
+            <MudText Class="reset-message">@_resetMessage</MudText>
+        }
+
+        <MudLink Class="back-to-login-link" @onclick="() => _showResetPassword = false">Back to Sign In</MudLink>
+    }
+</MudPaper>
+
+@code {
+    private string _email;
+    private string _password;
+    private string _error;
+    private bool _isLoginSuccessful;
+    private bool _showResetPassword;
+    private string _resetEmail;
+    private string _resetMessage;
+
+    private async Task OnLoginClick()
+    {
+        var token = await AuthService.LoginAsync(_email, _password);
+        if (token != null)
+        {
+            _isLoginSuccessful = true;
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            _isLoginSuccessful = false;
+            _error = "Invalid credentials";
+        }
+    }
+
+    private async Task OnResetPasswordClick()
+    {
+        var success = await AuthService.ResetPasswordAsync(_resetEmail);
+        _resetMessage = success ? "Password reset link sent! Check your email." : "Failed to send reset link. Please try again.";
+    }
+}

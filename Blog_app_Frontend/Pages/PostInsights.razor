@@ -1,0 +1,271 @@
+﻿@page "/posts/{postId:guid}/insights"
+@using Blog_app_Frontend.Models
+@using Blog_app_Frontend.Services
+@using MudBlazor
+@inject PostService PostService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<style>
+    /* Main container with gradient and shadow */
+    .insights-container {
+        padding: 32px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #f7f9fc, #e0eaff);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+        transition: transform 0.4s ease, box-shadow 0.4s ease;
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    .insights-container:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Custom metric heading style */
+    .metric-heading {
+        background-color: #d0e2ff;
+        color: #000;
+        font-weight: bold;
+        border-left: 4px solid #4285f4;
+        padding: 8px 16px;
+        border-radius: 4px 12px 12px 4px;
+        display: inline-block;
+        margin-bottom: 12px;
+        animation: pulse 1.2s infinite alternate;
+    }
+
+    /* User list styling */
+    .user-list {
+        margin-top: 8px;
+        padding-left: 20px;
+        color: #444;
+        font-size: 14px;
+        animation: slideInLeft 0.5s ease-out;
+    }
+
+    /* Comments section heading */
+    .comment-heading {
+        background-color: #d0e2ff;
+        color: #000;
+        font-weight: bold;
+        border-left: 4px solid #4285f4;
+        padding: 8px 16px;
+        border-radius: 4px 12px 12px 4px;
+        display: inline-block;
+        margin-bottom: 12px;
+        animation: pulse 1.2s infinite alternate;
+    }
+
+    /* Comments and metric result cards */
+    .comment-card, .metric-card {
+        padding: 16px;
+        background: #ffffff;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        animation: fadeIn 0.7s ease-out;
+        width: 300px; /* Fixed width for comment cards */
+    }
+
+    .comment-card:hover, .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .comment-author {
+        font-weight: 600;
+        color: #1a73e8;
+        font-size: 16px;
+    }
+
+    .comment-content {
+        color: #333;
+        font-size: 15px;
+        margin: 8px 0;
+        line-height: 1.5;
+    }
+
+    .comment-meta {
+        color: #666;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    /* Floating back button */
+    .floating-back-button {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        background: linear-gradient(90deg, #42a5f5, #64b5f6);
+        color: #fff;
+        border-radius: 25px;
+        font-weight: 600;
+        border: none;
+        box-shadow: 0 6px 20px rgba(66, 165, 245, 0.4);
+        transition: transform 0.3s ease, background 0.3s ease;
+        animation: bounceIn 0.8s ease-out;
+        cursor: pointer;
+        z-index: 1000;
+    }
+
+    .floating-back-button:hover {
+        transform: translateX(-50%) scale(1.05);
+        background: linear-gradient(90deg, #1976d2, #42a5f5);
+    }
+
+    /* Animations */
+    @@keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @@keyframes slideInLeft {
+        from { transform: translateX(-20px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+
+    }
+</style>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6 mb-6">
+    @if (isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" Class="my-6" />
+    }
+    else if (postInsights == null)
+    {
+        <MudAlert Severity="Severity.Error" Class="my-6">Post insights not found.</MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="6">
+                <MudPaper Elevation="4" Class="insights-container">
+                    <MudText Typo="Typo.h4" GutterBottom="true" Style="color: #1a73e8; font-weight: 700;">Post Insights</MudText>
+
+                    <!-- Views -->
+                    <MudText Typo="Typo.subtitle1" Class="metric-heading">Views: @postInsights.ViewsCount</MudText>
+                    <div class="metric-card">
+                        @if (postInsights.ViewedByUsers.Any())
+                        {
+                            @foreach (var user in postInsights.ViewedByUsers)
+                            {
+                                <MudText>@user.FullName</MudText>
+                            }
+                        }
+                        else
+                        {
+                            <MudText>No users viewed this post.</MudText>
+                        }
+                    </div>
+
+                    <!-- Likes -->
+                    <MudText Typo="Typo.subtitle1" Class="metric-heading mt-4">Likes: @postInsights.LikesCount</MudText>
+                    <div class="metric-card">
+                        @if (postInsights.LikedByUsers.Any())
+                        {
+                            @foreach (var user in postInsights.LikedByUsers)
+                            {
+                                <MudText>@user.FullName</MudText>
+                            }
+                        }
+                        else
+                        {
+                            <MudText>No users liked this post.</MudText>
+                        }
+                    </div>
+
+                    <!-- Saves -->
+                    <MudText Typo="Typo.subtitle1" Class="metric-heading mt-4">Saves: @postInsights.SavesCount</MudText>
+                    <div class="metric-card">
+                        @if (postInsights.SavedByUsers.Any())
+                        {
+                            @foreach (var user in postInsights.SavedByUsers)
+                            {
+                                <MudText>@user.FullName</MudText>
+                            }
+                        }
+                        else
+                        {
+                            <MudText>No users saved this post.</MudText>
+                        }
+                    </div>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6">
+                <MudPaper Elevation="4" Class="insights-container">
+                    <MudText Typo="Typo.h6" Class="comment-heading">Comments (@postInsights.CommentsCount)</MudText>
+                    @if (postInsights.Comments.Any())
+                    {
+                        @foreach (var comment in postInsights.Comments)
+                        {
+                            <div class="comment-card">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudAvatar Size="Size.Medium" Image="@comment.Author.AvatarUrl">
+                                        @if (string.IsNullOrWhiteSpace(comment.Author.AvatarUrl))
+                                        {
+                                            @comment.Author.FullName?.Split(' ').Select(n => n.First()).Take(2)
+                                        }
+                                    </MudAvatar>
+                                    <MudText Class="comment-author">@comment.Author.FullName</MudText>
+                                </MudStack>
+                                <MudText Class="comment-content">@comment.Content</MudText>
+                                <MudText Class="comment-meta">
+                                    <span>Likes: @comment.LikeCount</span>
+                                    <span>@comment.CreatedAt.ToLocalTime().ToString("g")</span>
+                                </MudText>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <MudText>No comments available.</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Class="floating-back-button" OnClick="GoBack">
+            ← Back to Posts
+        </MudButton>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid postId { get; set; }
+
+    private PostInsightsDto postInsights;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            postInsights = await PostService.GetPostInsightsAsync(postId);
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error loading post insights: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/profile");
+    }
+}

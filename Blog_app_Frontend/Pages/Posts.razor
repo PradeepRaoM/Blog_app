@@ -1,0 +1,744 @@
+﻿@page "/posts"
+@page "/posts/{searchQuery}"
+@using Microsoft.AspNetCore.Authorization
+@using Blog_app_Frontend.Models
+@using Blog_app_Frontend.Services
+@attribute [Authorize]
+@inject PostService PostService
+@inject LikeService LikeService
+@inject CommentService CommentService
+@inject SavedPostService SavedPostService
+@inject NavigationManager Navigation
+
+@using MudBlazor
+
+<style>
+    /* Container styling */
+    .mud-container {
+        padding: 16px;
+    }
+
+    /* Header row styling to place title, search, and clear button in one row */
+    .header-row {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        gap: 16px;
+        flex-wrap: nowrap;
+    }
+
+    .header-row .mud-typography-h4 {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .search-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    /* Card styling */
+    .mud-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-radius: 16px;
+        overflow: hidden;
+        background-color: #fff;
+        padding: 16px;
+    }
+
+    .mud-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Author section styling (avatar and name in one row) */
+    .author-section {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        background-color: #ffffff; /* Changed to full white */
+        border-bottom: 1px solid #e0e0e0;
+        border-radius: 12px;
+    }
+
+    .mud-avatar {
+        transition: transform 0.2s ease;
+    }
+
+    .mud-avatar:hover {
+        transform: scale(1.1);
+    }
+
+    /* Card media styling */
+    .mud-card-media {
+        object-fit: cover;
+        border-radius: 12px;
+    }
+
+    /* Button animations */
+    .mud-button, .mud-icon-button {
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .mud-button:hover, .mud-icon-button:hover {
+        transform: scale(1.1);
+    }
+
+    /* Read more button styling */
+    .read-more-button {
+        background-color: #000;
+        color: #fff;
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.3s ease;
+    }
+
+    .read-more-button:hover {
+        background-color: #000; /* Keep black on hover */
+        transform: scale(1.15);
+    }
+
+    .read-more-button:hover .mud-icon-root {
+        transform: rotate(90deg); /* Rotate to point upward */
+    }
+
+    .read-more-button .mud-icon-root {
+        transition: transform 0.3s ease;
+        font-size: 24px; /* Adjust icon size for larger button */
+    }
+
+    /* Card actions container */
+    .card-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .card-actions-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Author link styling */
+    .author-link {
+        color: #000 !important;
+        text-decoration: none !important;
+    }
+
+    .author-link:hover {
+        text-decoration: underline !important;
+    }
+
+    /* Fade-in animation for cards */
+    .mud-grid {
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive adjustments */
+    @@media (max-width: 600px) {
+        .header-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .search-container {
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        .mud-textfield {
+            width: 100% !important;
+        }
+    }
+
+    .filter-menu-main {
+        position: absolute;
+        top: 64px;
+        right: 10px;
+        z-index: 1000;
+        min-width: 200px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        background-color: #ffffff;
+        padding: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .filter-menu-item {
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin: 4px 0;
+        transition: background-color 0.2s ease;
+        cursor: pointer;
+        color: #333;
+        font-size: 0.95rem;
+    }
+
+        .filter-menu-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .filter-menu-item:active {
+            background-color: #e0e0e0;
+        }
+
+    .filter-menu {
+        position: absolute;
+        top: 64px;
+        right: 10px;
+        z-index: 1000;
+        min-width: 250px;
+        max-height: 400px;
+        overflow-y: auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        background-color: #ffffff;
+        padding: 16px;
+        transition: all 0.3s ease;
+    }
+
+    .filter-menu-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .filter-menu-title {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .filter-list-item {
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin: 4px 0;
+        transition: background-color 0.2s ease;
+        cursor: pointer;
+    }
+
+        .filter-list-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .filter-list-item:active {
+            background-color: #e0e0e0;
+        }
+
+        .filter-list-item.selected {
+            background-color: #e3f2fd;
+        }
+
+    .apply-button {
+        margin-top: 16px;
+        width: 100%;
+        text-align: center;
+    }
+
+    .back-button {
+        color: #666;
+        transition: color 0.2s ease;
+    }
+
+        .back-button:hover {
+            color: #333;
+        }
+
+    .date-range-error {
+        color: #d32f2f;
+        font-size: 0.85rem;
+        margin-top: 8px;
+    }
+</style>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudFlex Class="header-row">
+        <MudText Typo="Typo.h4">
+            @(string.IsNullOrWhiteSpace(searchQuery) ? "Latest Posts" : $"Search Results for \"{searchQuery}\"")
+        </MudText>
+        <!-- Filter Icon -->
+        <MudIconButton Icon="@Icons.Material.Filled.FilterList" Color="Color.Inherit" OnClick="@ToggleFilterMenu" />
+        <MudFlex Class="search-container">
+            <MudTextField @bind-Value="searchInput"
+                          Placeholder="Search posts..."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true"
+                          Size="Size.Small"
+                          OnKeyUp="@(async args =>
+                          {
+                              if (args.Key == "Enter" && !string.IsNullOrWhiteSpace(searchInput))
+                              {
+                                  Navigation.NavigateTo($"/posts/{Uri.EscapeDataString(searchInput)}");
+                              }
+                          })"
+                          Class="me-2"
+                          Style="width: 250px;" />
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           Color="Color.Default"
+                           Size="Size.Medium"
+                           OnClick="ClearSearch" />
+        </MudFlex>
+    </MudFlex>
+
+    @if (ShowFilterMenuMain)
+    {
+        <MudPaper Class="filter-menu-main">
+            <MudList T="string" Class="mt-2">
+                <MudListItem T="string" Class="filter-menu-item" OnClick="@(() => ShowFilterOptions(FilterType.Category))">Category</MudListItem>
+                <MudListItem T="string" Class="filter-menu-item" OnClick="@(() => ShowFilterOptions(FilterType.Author))">Author</MudListItem>
+                <MudListItem T="string" Class="filter-menu-item" OnClick="@(() => ShowFilterOptions(FilterType.Location))">Location</MudListItem>
+                <MudListItem T="string" Class="filter-menu-item" OnClick="@(() => ShowFilterOptions(FilterType.Date))">Date</MudListItem>
+            </MudList>
+        </MudPaper>
+    }
+
+    @if (ShowFilterMenu)
+    {
+        <MudPaper Class="filter-menu">
+            <div class="filter-menu-header">
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Class="back-button" OnClick="@ReturnToMainFilterMenu" />
+                <MudText Class="filter-menu-title">@SelectedFilterType Filters</MudText>
+            </div>
+
+            <MudList T="string" Class="mt-2">
+                @switch (SelectedFilterType)
+                {
+                    case FilterType.Category:
+                        @foreach (var cat in FilterOptions.Categories)
+                        {
+                            <MudListItem T="string"
+                                         Class="@($"filter-list-item {(SelectedFilterValue == cat.Name ? "selected" : "")}")"
+                                         OnClick="@(() => SelectFilterItem(cat.Name))">@cat.Name</MudListItem>
+                        }
+                        break;
+
+                    case FilterType.Author:
+                        @foreach (var author in FilterOptions.Authors)
+                        {
+                            <MudListItem T="string"
+                                         Class="@($"filter-list-item {(SelectedFilterValue == author.Username ? "selected" : "")}")"
+                                         OnClick="@(() => SelectFilterItem(author.Username))">@author.FullName</MudListItem>
+                        }
+                        break;
+
+                    case FilterType.Location:
+                        @foreach (var loc in FilterOptions.Locations)
+                        {
+                            <MudListItem T="string"
+                                         Class="@($"filter-list-item {(SelectedFilterValue == loc ? "selected" : "")}")"
+                                         OnClick="@(() => SelectFilterItem(loc))">@loc</MudListItem>
+                        }
+                        break;
+
+                    case FilterType.Date:
+                        <MudDateRangePicker Label="Select Date Range"
+                                            @bind-DateRange="SelectedDateRange"
+                                            Placeholder="Select start and end dates" />
+                        @if (!IsValidDateRange)
+                        {
+                            <MudText Class="date-range-error">
+                                Please select a valid date range (end date must be after start date).
+                            </MudText>
+                        }
+                        break;
+                }
+            </MudList>
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Class="apply-button"
+                       OnClick="@ApplyFilter"
+                       Disabled="@(SelectedFilterType == FilterType.Date ? !IsValidDateRange : string.IsNullOrEmpty(SelectedFilterValue))">
+                Apply
+            </MudButton>
+        </MudPaper>
+    }
+
+    @if (isLoading)
+    {
+        <MudGrid Spacing="3" Justify="Justify.FlexStart">
+            @for (int i = 0; i < 6; i++)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Elevation="2" Class="d-flex flex-column" Style="border-radius: 16px; padding: 16px;">
+                        <div class="author-section" style="border-radius: 12px; background-color: #ffffff;">
+                            <MudSkeleton SkeletonType="SkeletonType.Circle" Width="40px" Height="40px" />
+                            <MudStack Spacing="1">
+                                <MudSkeleton SkeletonType="SkeletonType.Text" Width="100px" />
+                                <MudSkeleton SkeletonType="SkeletonType.Text" Width="60px" />
+                            </MudStack>
+                        </div>
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="180px" Style="border-radius: 12px;" />
+                        <MudCardContent Class="flex-grow-1">
+                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="80%" />
+                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="100%" />
+                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="60%" />
+                        </MudCardContent>
+                        <MudCardActions Class="card-actions">
+                            <div class="card-actions-left">
+                                <MudSkeleton SkeletonType="SkeletonType.Circle" Width="36px" Height="36px" />
+                                <MudSkeleton SkeletonType="SkeletonType.Text" Width="30px" Class="me-2" />
+                                <MudSkeleton SkeletonType="SkeletonType.Circle" Width="36px" Height="36px" />
+                                <MudSkeleton SkeletonType="SkeletonType.Text" Width="30px" Class="me-2" />
+                                <MudSkeleton SkeletonType="SkeletonType.Circle" Width="36px" Height="36px" />
+                            </div>
+                            <MudSkeleton SkeletonType="SkeletonType.Circle" Width="48px" Height="48px" />
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else if (posts == null || !posts.Any())
+    {
+        <MudAlert Severity="Severity.Info">No posts found.</MudAlert>
+    }
+    else
+    {
+        <MudGrid Spacing="3" Justify="Justify.FlexStart">
+            @foreach (var post in posts)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Elevation="2" Class="d-flex flex-column" Style="border-radius: 16px; padding: 16px;">
+                        <div class="author-section" style="border-radius: 12px; background-color: #ffffff;">
+                            @if (!string.IsNullOrEmpty(post.AuthorAvatarUrl))
+                            {
+                                <MudAvatar Size="Size.Medium">
+                                    <MudImage Src="@post.AuthorAvatarUrl"></MudImage>
+                                </MudAvatar>
+                            }
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.caption">
+                                    <MudLink Href="@($"/profile/{post.AuthorId}")" Class="author-link">
+                                        @(string.IsNullOrEmpty(post.AuthorFullName) ? post.AuthorUsername : post.AuthorFullName)
+                                    </MudLink>
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="text-secondary">
+                                    @post.PublishedAt?.ToString("dd MMM yyyy")
+                                </MudText>
+                            </MudStack>
+                        </div>
+                        @if (!string.IsNullOrEmpty(post.FeaturedImageUrl))
+                        {
+                            <MudCardMedia Image="@post.FeaturedImageUrl" Height="180" Alt="@post.Title" />
+                        }
+                        <MudCardContent Class="flex-grow-1">
+                            <MudText Typo="Typo.h6">@post.Title</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                @GetExcerpt(post.ContentHtml)
+                            </MudText>
+                        </MudCardContent>
+                        <MudCardActions Class="card-actions">
+                            <div class="card-actions-left">
+                                <MudIconButton Icon="@((post.IsLikedByCurrentUser ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder))"
+                                               Color="@(post.IsLikedByCurrentUser ? Color.Error : Color.Default)"
+                                               OnClick="() => ToggleLikeDislike(post)" />
+                                <MudText Typo="Typo.caption" Class="me-2">@post.LikeCount</MudText>
+                                <MudIconButton Icon="@Icons.Material.Filled.Comment" Color="Color.Default" />
+                                <MudText Typo="Typo.caption" Class="me-2">@post.CommentCount</MudText>
+                                <MudIconButton Icon="@((post.IsSavedByCurrentUser ? Icons.Material.Filled.Bookmark : Icons.Material.Outlined.BookmarkBorder))"
+                                               Color="Color.Default"
+                                               OnClick="() => ToggleSavePost(post)" />
+                            </div>
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                                           Class="read-more-button"
+                                           Href="@($"/posts/{post.Id}")" />
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public string? searchQuery { get; set; }
+
+    private string? filter;
+    private string? value;
+
+    private string searchInput = "";
+    private List<PostDto>? posts;
+    private bool isLoading = true;
+
+    public enum FilterType
+    {
+        Category,
+        Author,
+        Location,
+        Date
+    }
+
+    private FilterOptionsDto FilterOptions { get; set; } = new();
+    private FilterType SelectedFilterType { get; set; }
+    private bool ShowFilterMenu { get; set; } = false;
+    private bool ShowFilterMenuMain { get; set; } = false;
+    private string SelectedFilterValue { get; set; } = string.Empty;
+    private MudBlazor.DateRange SelectedDateRange { get; set; } =
+        new MudBlazor.DateRange(DateTime.Today.AddDays(-7), DateTime.Today);
+
+    private bool IsValidDateRange =>
+        SelectedDateRange?.Start != null &&
+        SelectedDateRange?.End != null &&
+        SelectedDateRange.End >= SelectedDateRange.Start;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += HandleLocationChanged;
+        await LoadFilterOptions();
+    }
+
+    private async void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        await LoadPostsFromQuery();
+        StateHasChanged();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadPostsFromQuery();
+    }
+
+    private async Task LoadPostsFromQuery()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        filter = query["filter"];
+        value = query["value"];
+        searchInput = searchQuery ?? "";
+
+        if (!string.IsNullOrEmpty(filter) && !string.IsNullOrEmpty(value))
+        {
+            await LoadFilteredPosts(filter!, value!);
+        }
+        else
+        {
+            await LoadPosts();
+        }
+    }
+
+    private async Task LoadPosts()
+    {
+        try
+        {
+            isLoading = true;
+
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                posts = await PostService.GetPublishedPostsAsync();
+            }
+            else
+            {
+                posts = await PostService.SearchPostsAsync(searchQuery);
+            }
+
+            await MarkPostInteractions(posts);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching posts: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadFilteredPosts(string filterType, string filterValue)
+    {
+        try
+        {
+            isLoading = true;
+
+            posts = await PostService.GetPostsByFilterAsync(filterType, filterValue);
+
+            await MarkPostInteractions(posts);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching filtered posts: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadFilterOptions()
+    {
+        try
+        {
+            FilterOptions = await PostService.GetFilterOptionsAsync() ?? new FilterOptionsDto();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load filter options: {ex.Message}");
+        }
+    }
+
+    private async Task MarkPostInteractions(List<PostDto>? posts)
+    {
+        if (posts == null || posts.Count == 0) return;
+
+        var savedPosts = await SavedPostService.GetSavedPostsAsync();
+        var savedPostIds = savedPosts.Select(p => p.Id).ToHashSet();
+
+        foreach (var post in posts)
+        {
+            post.IsLikedByCurrentUser = await LikeService.HasUserLikedAsync(post.Id);
+            post.LikeCount = await LikeService.GetLikeCountAsync(post.Id);
+
+            var comments = await CommentService.GetCommentsByPostIdAsync(post.Id);
+            post.CommentCount = comments.Count;
+
+            post.IsSavedByCurrentUser = savedPostIds.Contains(post.Id);
+        }
+    }
+
+    private async Task ToggleLikeDislike(PostDto post)
+    {
+        try
+        {
+            if (post.IsLikedByCurrentUser)
+            {
+                var success = await LikeService.DislikeAsync(post.Id);
+                if (success)
+                {
+                    post.IsLikedByCurrentUser = false;
+                    post.LikeCount--;
+                }
+            }
+            else
+            {
+                var success = await LikeService.LikeAsync(post.Id);
+                if (success)
+                {
+                    post.IsLikedByCurrentUser = true;
+                    post.LikeCount++;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error toggling like/dislike: {ex.Message}");
+        }
+    }
+
+    private async Task ToggleSavePost(PostDto post)
+    {
+        try
+        {
+            if (post.IsSavedByCurrentUser)
+            {
+                var success = await SavedPostService.RemoveSavedPostAsync(post.Id);
+                if (success)
+                    post.IsSavedByCurrentUser = false;
+            }
+            else
+            {
+                var savedPost = await SavedPostService.SavePostAsync(post.Id);
+                if (savedPost != null)
+                    post.IsSavedByCurrentUser = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error toggling save post: {ex.Message}");
+        }
+    }
+
+    private string GetExcerpt(string htmlContent, int maxLength = 100)
+    {
+        if (string.IsNullOrEmpty(htmlContent))
+            return string.Empty;
+
+        var plainText = System.Text.RegularExpressions.Regex.Replace(htmlContent, "<.*?>", string.Empty);
+        return plainText.Length <= maxLength ? plainText : plainText.Substring(0, maxLength) + "...";
+    }
+
+    private async Task ClearSearch()
+    {
+        searchInput = "";
+        searchQuery = null;
+        Navigation.NavigateTo("/posts", forceLoad: false);
+
+        await LoadPosts();
+    }
+
+    private void ToggleFilterMenu()
+    {
+        ShowFilterMenuMain = !ShowFilterMenuMain;
+        if (ShowFilterMenuMain)
+            ShowFilterMenu = false;
+    }
+
+    private void ShowFilterOptions(FilterType type)
+    {
+        SelectedFilterType = type;
+        ShowFilterMenu = true;
+        ShowFilterMenuMain = false;
+        SelectedFilterValue = string.Empty;
+
+        if (type == FilterType.Date)
+            SelectedDateRange = new MudBlazor.DateRange(DateTime.Today.AddDays(-7), DateTime.Today);
+    }
+
+    private void SelectFilterItem(string value)
+    {
+        SelectedFilterValue = value;
+    }
+
+    private void ApplyFilter()
+    {
+        if (SelectedFilterType == FilterType.Date)
+        {
+            if (IsValidDateRange)
+            {
+                ShowFilterMenu = false;
+                string url = $"/posts?filter={SelectedFilterType}&start={Uri.EscapeDataString(SelectedDateRange.Start.Value.ToString("yyyy-MM-dd"))}&end={Uri.EscapeDataString(SelectedDateRange.End.Value.ToString("yyyy-MM-dd"))}";
+                Navigation.NavigateTo(url);
+            }
+        }
+        else if (!string.IsNullOrEmpty(SelectedFilterValue))
+        {
+            ShowFilterMenu = false;
+            string url = $"/posts?filter={SelectedFilterType}&value={Uri.EscapeDataString(SelectedFilterValue)}";
+            Navigation.NavigateTo(url);
+        }
+    }
+
+    private void ReturnToMainFilterMenu()
+    {
+        ShowFilterMenu = false;
+        ShowFilterMenuMain = true;
+    }
+
+    public void Dispose()
+    {
+        // Unsubscribe to avoid memory leaks
+        Navigation.LocationChanged -= HandleLocationChanged;
+    }
+}
